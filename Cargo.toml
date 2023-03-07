@@ -1,0 +1,25 @@
+[workspace]
+
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+repository = "https://github.com/jo12bar/rogulike-tut-rs"
+authors = ["Johann M. Barnard <johann.b@telus.net>"]
+license = "MIT"
+
+[workspace.dependencies]
+rltk = { version = "0.8.0" }
+
+[package]
+name = "roguelike-tut"
+description = "My implementation of the roguelike game described in Herbert Wolverson's \"Roguelike Tutorial - In Rust\""
+
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
