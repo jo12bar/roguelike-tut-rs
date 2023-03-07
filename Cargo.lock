@@ -1472,6 +1472,10 @@ dependencies = [
 [[package]]
 name = "roguelike-tut"
 version = "0.1.0"
+dependencies = [
+ "rltk",
+ "specs",
+]
 
 [[package]]
 name = "safe_arch"

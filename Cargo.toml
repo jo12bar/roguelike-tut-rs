@@ -24,3 +24,5 @@ authors.workspace = true
 license.workspace = true
 
 [dependencies]
+rltk.workspace = true
+specs.workspace = true
