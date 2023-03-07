@@ -1,8 +1,12 @@
 [package]
 name = "helloworld"
-version = "0.1.0"
-edition = "2021"
+description = "An initial introduction to the rltk framework."
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+authors.workspace = true
+license.workspace = true
 
 [dependencies]
+rltk.workspace = true

@@ -10,7 +10,7 @@ authors = ["Johann M. Barnard <johann.b@telus.net>"]
 license = "MIT"
 
 [workspace.dependencies]
-rltk = { version = "0.8.0" }
+rltk = { version = "0.8.7" }
 
 [package]
 name = "roguelike-tut"
