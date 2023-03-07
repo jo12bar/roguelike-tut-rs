@@ -1,0 +1,13 @@
+[package]
+name = "ecs-demo"
+description = "A simple ECS demo that puts characters on a screen and moves them around."
+
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+rltk.workspace = true
+specs.workspace = true
