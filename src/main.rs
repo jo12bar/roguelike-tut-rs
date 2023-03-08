@@ -1,10 +1,12 @@
 mod components;
 mod map;
 mod player;
+mod rect;
 
 pub use self::components::*;
 pub use self::map::*;
 pub use self::player::*;
+pub use self::rect::*;
 
 use rltk::{GameState, Rltk, RltkBuilder, RGB};
 use specs::prelude::*;
@@ -60,12 +62,17 @@ fn main() -> rltk::BError {
     gs.ecs.register::<Renderable>();
     gs.ecs.register::<Player>();
 
-    gs.ecs.insert(new_map_test());
+    let (rooms, map) = new_map_rooms_and_corridors();
+    gs.ecs.insert(map);
+    let (player_x, player_y) = rooms[0].center();
 
     // Create the player
     gs.ecs
         .create_entity()
-        .with(Position { x: 40, y: 25 })
+        .with(Position {
+            x: player_x,
+            y: player_y,
+        })
         .with(Renderable {
             glyph: rltk::to_cp437('@'),
             fg: RGB::named(rltk::YELLOW),
