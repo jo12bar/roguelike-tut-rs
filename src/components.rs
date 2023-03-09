@@ -1,3 +1,5 @@
+use std::fmt;
+
 use rltk::RGB;
 use specs::prelude::*;
 use specs::Component;
@@ -40,6 +42,32 @@ pub struct Player;
 /// Indicates that an entity is a Monster.
 #[derive(Component, Debug, Default)]
 pub struct Monster;
+
+/// An entity's name.
+#[derive(Component, Debug, Default)]
+pub struct Name {
+    pub name: String,
+}
+
+impl fmt::Display for Name {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.name.fmt(f)
+    }
+}
+
+impl From<String> for Name {
+    fn from(name: String) -> Self {
+        Self { name }
+    }
+}
+
+impl<'a> From<&'a str> for Name {
+    fn from(name: &'a str) -> Self {
+        Self {
+            name: name.to_string(),
+        }
+    }
+}
 
 /// Describes which tiles are visible to an entity, and what the entity's
 /// view range is.

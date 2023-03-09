@@ -95,6 +95,7 @@ fn main() -> rltk::BError {
     gs.ecs.register::<Renderable>();
     gs.ecs.register::<Player>();
     gs.ecs.register::<Monster>();
+    gs.ecs.register::<Name>();
     gs.ecs.register::<Viewshed>();
 
     let map = Map::new_map_rooms_and_corridors();
@@ -116,17 +117,18 @@ fn main() -> rltk::BError {
             range: 8,
             ..Default::default()
         })
+        .with(Name::from("Player"))
         .build();
 
     // Add monsters to the center of each room (except the starting room)
-    for room in map.rooms.iter().skip(1) {
+    for (i, room) in map.rooms.iter().skip(1).enumerate() {
         let (x, y) = room.center();
 
         // 50/50 chance of spawning an orc or a goblin
         let roll = rng.roll_dice(1, 2);
-        let glyph = match roll {
-            1 => rltk::to_cp437('g'),
-            _ => rltk::to_cp437('o'),
+        let (glyph, name) = match roll {
+            1 => (rltk::to_cp437('g'), "Goblin"),
+            _ => (rltk::to_cp437('o'), "Orc"),
         };
 
         gs.ecs
@@ -142,6 +144,7 @@ fn main() -> rltk::BError {
                 ..Default::default()
             })
             .with(Monster)
+            .with(Name::from(format!("{name} #{i}")))
             .build();
     }
 
