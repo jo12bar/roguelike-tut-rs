@@ -45,12 +45,17 @@ impl GameState for State {
         // Render the map
         draw_map(&self.ecs, ctx);
 
-        // Render anything that has a position
+        // Render any entity that has a position
         let positions = self.ecs.read_storage::<Position>();
         let renderables = self.ecs.read_storage::<Renderable>();
+        let map = self.ecs.fetch::<Map>();
 
         for (pos, render) in (&positions, &renderables).join() {
-            ctx.set(pos.x, pos.y, render.fg, render.bg, render.glyph);
+            // Only render the entity if the player can currently see it!
+            let idx = map.xy_idx(pos.x, pos.y);
+            if map.visible_tiles[idx] {
+                ctx.set(pos.x, pos.y, render.fg, render.bg, render.glyph);
+            }
         }
     }
 }
@@ -70,7 +75,6 @@ fn main() -> rltk::BError {
 
     let map = Map::new_map_rooms_and_corridors();
     let (player_x, player_y) = map.rooms[0].center();
-    gs.ecs.insert(map);
 
     // Create the player
     gs.ecs
@@ -87,6 +91,26 @@ fn main() -> rltk::BError {
             ..Default::default()
         })
         .build();
+
+    // Add monsters to the center of each room (except the starting room)
+    for room in map.rooms.iter().skip(1) {
+        let (x, y) = room.center();
+        gs.ecs
+            .create_entity()
+            .with(Position::from((x, y)))
+            .with(Renderable {
+                glyph: rltk::to_cp437('g'),
+                fg: RGB::named(rltk::RED),
+                ..Default::default()
+            })
+            .with(Viewshed {
+                range: 8,
+                ..Default::default()
+            })
+            .build();
+    }
+
+    gs.ecs.insert(map);
 
     rltk::main_loop(context, gs)
 }
