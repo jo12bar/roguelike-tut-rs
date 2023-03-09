@@ -26,22 +26,20 @@ use specs::prelude::*;
 /// The game is either "Running" or "Waiting for Input."
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub enum RunState {
-    Paused,
-    Running,
+    AwaitingInput,
+    PreRun,
+    PlayerTurn,
+    MonsterTurn,
 }
 
 /// Global game state.
 pub struct State {
     pub ecs: World,
-    pub runstate: RunState,
 }
 
 impl Default for State {
     fn default() -> Self {
-        Self {
-            ecs: World::new(),
-            runstate: RunState::Running,
-        }
+        Self { ecs: World::new() }
     }
 }
 
@@ -70,15 +68,37 @@ impl GameState for State {
     fn tick(&mut self, ctx: &mut Rltk) {
         ctx.cls();
 
-        // Only tick the ECS _once_ if the current runstate is "Running".
-        // Otherwise, wait for player input.
-        if self.runstate == RunState::Running {
-            self.run_systems();
-            damage_system::delete_the_dead(&mut self.ecs);
-            self.runstate = RunState::Paused;
-        } else {
-            self.runstate = player_input(self, ctx);
+        // Tick the ECS (or don't) depending on the current runstate. Make sure
+        // to transition to a new runstate after doing so.
+        let mut newrunstate;
+        {
+            let runstate = self.ecs.fetch::<RunState>();
+            newrunstate = *runstate;
         }
+
+        match newrunstate {
+            RunState::PreRun => {
+                self.run_systems();
+                newrunstate = RunState::AwaitingInput;
+            }
+            RunState::AwaitingInput => {
+                newrunstate = player_input(self, ctx);
+            }
+            RunState::PlayerTurn => {
+                self.run_systems();
+                newrunstate = RunState::MonsterTurn;
+            }
+            RunState::MonsterTurn => {
+                self.run_systems();
+                newrunstate = RunState::AwaitingInput;
+            }
+        }
+
+        {
+            let mut runwriter = self.ecs.write_resource::<RunState>();
+            *runwriter = newrunstate;
+        }
+        damage_system::delete_the_dead(&mut self.ecs);
 
         // Render the map
         draw_map(&self.ecs, ctx);
@@ -202,7 +222,7 @@ fn run_game() -> rltk::BError {
     gs.ecs.insert(map);
     gs.ecs.insert(PlayerPos::new(player_x, player_y));
     gs.ecs.insert(player_entity);
-    gs.ecs.insert(gs.runstate);
+    gs.ecs.insert(RunState::PreRun);
 
     rltk::main_loop(context, gs)
 }

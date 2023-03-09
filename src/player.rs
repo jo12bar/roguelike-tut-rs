@@ -134,7 +134,7 @@ pub fn player_input(gs: &mut State, ctx: &mut Rltk) -> RunState {
     match ctx.key {
         // Nothing happened
         None => {
-            return RunState::Paused;
+            return RunState::AwaitingInput;
         }
 
         // A key was pressed!
@@ -171,10 +171,10 @@ pub fn player_input(gs: &mut State, ctx: &mut Rltk) -> RunState {
 
             // We don't care about this key
             _ => {
-                return RunState::Paused;
+                return RunState::AwaitingInput;
             }
         },
     }
 
-    RunState::Running
+    RunState::PlayerTurn
 }

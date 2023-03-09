@@ -33,6 +33,11 @@ impl<'a> System<'a> for MonsterAI {
             mut wants_to_melee,
         ): Self::SystemData,
     ) {
+        // Only run when it's the monsters' turn!
+        if *runstate != RunState::MonsterTurn {
+            return;
+        }
+
         for (entity, mut viewshed, _monster, mut pos) in
             (&entities, &mut viewshed, &monster, &mut position).join()
         {
