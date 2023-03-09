@@ -6,7 +6,7 @@ use std::{
 use rltk::{Rltk, VirtualKeyCode};
 use specs::prelude::*;
 
-use crate::{Map, Player, Position, RunState, State, TileType, Viewshed};
+use crate::{Map, Player, Position, RunState, State, Viewshed};
 
 /// The player's position. Just a newtype wrapper over a [`rltk::Point`].
 ///
@@ -53,7 +53,7 @@ pub fn try_move_player(delta_x: i32, delta_y: i32, ecs: &mut World) {
 
     for (_player, pos, viewshed) in (&mut players, &mut positions, &mut viewsheds).join() {
         let destination_idx = map.xy_idx(pos.x + delta_x, pos.y + delta_y);
-        if map.tiles[destination_idx] != TileType::Wall {
+        if !map.blocked[destination_idx] {
             pos.x = min(map.width - 1, max(0, pos.x + delta_x));
             pos.y = min(map.height - 1, max(0, pos.y + delta_y));
 

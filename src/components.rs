@@ -88,3 +88,8 @@ impl Default for Viewshed {
         }
     }
 }
+
+/// Indicates that an entity blocks the tile it is currently on from access by
+/// other entities.
+#[derive(Component, Debug, Default)]
+pub struct BlocksTile;

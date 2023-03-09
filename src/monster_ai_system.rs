@@ -1,4 +1,4 @@
-use rltk::console;
+use rltk::{console, Point};
 use specs::prelude::*;
 
 use crate::{Map, Monster, Name, PlayerPos, Position, Viewshed};
@@ -23,11 +23,17 @@ impl<'a> System<'a> for MonsterAI {
         for (mut viewshed, _monster, name, mut pos) in
             (&mut viewshed, &monster, &name, &mut position).join()
         {
-            // If the monster can see the player, it starts moving towards the
-            // player while shouting insults.
-            if viewshed.visible_tiles.contains(&*player_pos) {
+            // If the monster is close enough, it attacks (and doesn't move).
+            let distance =
+                rltk::DistanceAlg::Pythagoras.distance2d(Point::new(pos.x, pos.y), **player_pos);
+            if distance < 1.5 {
                 console::log(format!("{name} shouts insults"));
+                return;
+            }
 
+            // If the monster can see the player, it starts moving towards the
+            // player.
+            if viewshed.visible_tiles.contains(&*player_pos) {
                 let path = rltk::a_star_search(
                     map.xy_idx(pos.x, pos.y),
                     map.xy_idx(player_pos.x, player_pos.y),

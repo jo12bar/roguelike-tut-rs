@@ -41,6 +41,13 @@ pub struct Map {
     /// An element in this vector will be `true` if the player can currently see the
     /// corresponding tile in [`Self::tiles`].
     pub visible_tiles: Vec<bool>,
+
+    /// All tiles that are blocked from access. This includes things like walls,
+    /// monsters, etc. that can't be moved onto by other entities.
+    ///
+    /// An element in this vector will be `true` if the corresponding tile in
+    /// [`Self::tiles`] is blocked from access.
+    pub blocked: Vec<bool>,
 }
 
 impl Map {
@@ -81,6 +88,13 @@ impl Map {
         }
     }
 
+    /// Populate [`Self::blocked`] with all statically-blocked tiles.
+    pub fn populate_blocked(&mut self) {
+        for (i, tile) in self.tiles.iter_mut().enumerate() {
+            self.blocked[i] = *tile == TileType::Wall;
+        }
+    }
+
     /// Create a new map with randomly-placed rooms that are connected by corridors.
     ///
     /// The map will have a width of 80 and a height of 50.
@@ -93,6 +107,7 @@ impl Map {
             height: 50,
             revealed_tiles: vec![false; 80 * 50],
             visible_tiles: vec![false; 80 * 50],
+            blocked: vec![false; 80 * 50],
         };
 
         const MAX_ROOMS: i32 = 30;
@@ -145,7 +160,7 @@ impl Map {
         }
 
         let idx = self.xy_idx(x, y);
-        self.tiles[idx] != TileType::Wall
+        !self.blocked[idx]
     }
 }
 
