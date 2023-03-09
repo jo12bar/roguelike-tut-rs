@@ -41,6 +41,34 @@ impl DerefMut for PlayerPos {
     }
 }
 
+/// The player [`specs::Entity`].
+///
+/// Just a newtype wrapper over a [`specs::Entity`]. Allows for unambiguously
+/// storing the player position as a specs resource.
+#[derive(Copy, Clone, Debug, Hash, Eq, Ord, PartialEq, PartialOrd)]
+#[repr(transparent)]
+pub struct PlayerEntity(pub specs::Entity);
+
+impl From<specs::Entity> for PlayerEntity {
+    fn from(entity: specs::Entity) -> Self {
+        Self(entity)
+    }
+}
+
+impl Deref for PlayerEntity {
+    type Target = specs::Entity;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for PlayerEntity {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 /// Try to move the player by a certain delta vector, if the ECS contains
 /// at least one entity that has both the [`Position`] and [`Player`] components.
 ///

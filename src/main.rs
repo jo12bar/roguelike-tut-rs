@@ -98,7 +98,22 @@ impl GameState for State {
     }
 }
 
-fn main() -> rltk::BError {
+fn main() -> color_eyre::Result<()> {
+    color_eyre::install()?;
+
+    run_game().map_err(RunGameError::from)?;
+
+    Ok(())
+}
+
+#[derive(thiserror::Error, Debug)]
+#[error("Error while running game")]
+struct RunGameError {
+    #[from]
+    source: Box<dyn std::error::Error + Send + Sync>,
+}
+
+fn run_game() -> rltk::BError {
     let mut context = RltkBuilder::simple80x50()
         .with_title("Hello RLTK World")
         .with_fps_cap(60.0)
@@ -125,7 +140,8 @@ fn main() -> rltk::BError {
     let mut rng = rltk::RandomNumberGenerator::new();
 
     // Create the player
-    gs.ecs
+    let player_entity = gs
+        .ecs
         .create_entity()
         .with(Player)
         .with(Name::from("Player"))
@@ -146,6 +162,7 @@ fn main() -> rltk::BError {
             power: 5,
         })
         .build();
+    let player_entity = PlayerEntity::from(player_entity);
 
     // Add monsters to the center of each room (except the starting room)
     for (i, room) in map.rooms.iter().skip(1).enumerate() {
@@ -184,6 +201,8 @@ fn main() -> rltk::BError {
 
     gs.ecs.insert(map);
     gs.ecs.insert(PlayerPos::new(player_x, player_y));
+    gs.ecs.insert(player_entity);
+    gs.ecs.insert(gs.runstate);
 
     rltk::main_loop(context, gs)
 }
