@@ -2,11 +2,15 @@ mod components;
 mod map;
 mod player;
 mod rect;
+mod render;
+mod visibility_system;
 
 pub use self::components::*;
 pub use self::map::*;
 pub use self::player::*;
 pub use self::rect::*;
+pub use self::render::*;
+pub use self::visibility_system::*;
 
 use rltk::{GameState, Rltk, RltkBuilder, RGB};
 use specs::prelude::*;
@@ -25,7 +29,9 @@ impl Default for State {
 impl State {
     /// Runs all ECS systems for one ECS tick.
     fn run_systems(&mut self) {
-        // no-op
+        let mut vis = VisibilitySystem;
+        vis.run_now(&self.ecs);
+        self.ecs.maintain();
     }
 }
 
@@ -37,8 +43,7 @@ impl GameState for State {
         self.run_systems(); // tick the ECS
 
         // Render the map
-        let map = self.ecs.fetch::<Map>();
-        draw_map(&map, ctx);
+        draw_map(&self.ecs, ctx);
 
         // Render anything that has a position
         let positions = self.ecs.read_storage::<Position>();
@@ -61,6 +66,7 @@ fn main() -> rltk::BError {
     gs.ecs.register::<Position>();
     gs.ecs.register::<Renderable>();
     gs.ecs.register::<Player>();
+    gs.ecs.register::<Viewshed>();
 
     let map = Map::new_map_rooms_and_corridors();
     let (player_x, player_y) = map.rooms[0].center();
@@ -79,6 +85,10 @@ fn main() -> rltk::BError {
             bg: RGB::named(rltk::BLACK),
         })
         .with(Player)
+        .with(Viewshed {
+            visible_tiles: Vec::new(),
+            range: 8,
+        })
         .build();
 
     rltk::main_loop(context, gs)

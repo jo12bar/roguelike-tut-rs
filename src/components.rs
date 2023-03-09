@@ -20,3 +20,11 @@ pub struct Renderable {
 /// Indicates that an entity is the Player character.
 #[derive(Component, Debug)]
 pub struct Player;
+
+/// Describes which tiles are visible to an entity, and what the entity's
+/// view range is.
+#[derive(Component)]
+pub struct Viewshed {
+    pub visible_tiles: Vec<rltk::Point>,
+    pub range: i32,
+}
