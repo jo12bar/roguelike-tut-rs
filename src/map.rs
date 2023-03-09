@@ -32,6 +32,15 @@ pub struct Map {
     /// An element in this vector will be `true` if the player has revealed the
     /// corresponding tile in [`Self::tiles`].
     pub revealed_tiles: Vec<bool>,
+
+    /// All tiles that are _currently_ visible to the player.
+    ///
+    /// This allows greying out tiles that were previously revealed but are no
+    /// longer visible.
+    ///
+    /// An element in this vector will be `true` if the player can currently see the
+    /// corresponding tile in [`Self::tiles`].
+    pub visible_tiles: Vec<bool>,
 }
 
 impl Map {
@@ -83,6 +92,7 @@ impl Map {
             width: 80,
             height: 50,
             revealed_tiles: vec![false; 80 * 50],
+            visible_tiles: vec![false; 80 * 50],
         };
 
         const MAX_ROOMS: i32 = 30;

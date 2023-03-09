@@ -18,15 +18,29 @@ impl<'a> System<'a> for VisibilitySystem {
 
     fn run(&mut self, (mut map, entities, mut viewshed, pos, player): Self::SystemData) {
         for (ent, viewshed, pos) in (&entities, &mut viewshed, &pos).join() {
-            //viewshed.visible_tiles.clear();
-            viewshed.visible_tiles = field_of_view(Point::new(pos.x, pos.y), viewshed.range, &*map);
-            viewshed.visible_tiles.retain(|p| map.in_bounds(*p));
+            if viewshed.dirty {
+                viewshed.dirty = false;
 
-            // If this is the player, reveal what they can see!
-            if let Some(_p) = player.get(ent) {
-                for vis in viewshed.visible_tiles.iter() {
-                    let idx = map.xy_idx(vis.x, vis.y);
-                    map.revealed_tiles[idx] = true;
+                //viewshed.visible_tiles.clear();
+                viewshed.visible_tiles =
+                    field_of_view(Point::new(pos.x, pos.y), viewshed.range, &*map);
+                viewshed.visible_tiles.retain(|p| map.in_bounds(*p));
+
+                // If this is the player, reveal what they can see!
+                if let Some(_p) = player.get(ent) {
+                    // Grey out all tiles that were visible to the player the last time the
+                    // viewshed was updated.
+                    for t in map.visible_tiles.iter_mut() {
+                        *t = false;
+                    }
+
+                    // Update the map's record of currently-visible tiles and
+                    // previously-revelaed tiles.
+                    for vis in viewshed.visible_tiles.iter() {
+                        let idx = map.xy_idx(vis.x, vis.y);
+                        map.revealed_tiles[idx] = true;
+                        map.visible_tiles[idx] = true;
+                    }
                 }
             }
         }

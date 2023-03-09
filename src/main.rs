@@ -75,19 +75,16 @@ fn main() -> rltk::BError {
     // Create the player
     gs.ecs
         .create_entity()
-        .with(Position {
-            x: player_x,
-            y: player_y,
-        })
+        .with(Position::from((player_x, player_y)))
         .with(Renderable {
             glyph: rltk::to_cp437('@'),
             fg: RGB::named(rltk::YELLOW),
-            bg: RGB::named(rltk::BLACK),
+            ..Default::default()
         })
         .with(Player)
         .with(Viewshed {
-            visible_tiles: Vec::new(),
             range: 8,
+            ..Default::default()
         })
         .build();
 
