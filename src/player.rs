@@ -78,7 +78,7 @@ pub fn player_input(gs: &mut State, ctx: &mut Rltk) -> RunState {
 
         // A key was pressed!
         Some(key) => match key {
-            // Movement
+            // Movement in cardinal directions
             VirtualKeyCode::Left
             | VirtualKeyCode::A
             | VirtualKeyCode::H
@@ -98,6 +98,15 @@ pub fn player_input(gs: &mut State, ctx: &mut Rltk) -> RunState {
             | VirtualKeyCode::S
             | VirtualKeyCode::J
             | VirtualKeyCode::Numpad2 => try_move_player(0, 1, &mut gs.ecs),
+
+            // Movement in diagonal directions
+            VirtualKeyCode::Numpad9 | VirtualKeyCode::Y => try_move_player(1, -1, &mut gs.ecs),
+
+            VirtualKeyCode::Numpad7 | VirtualKeyCode::U => try_move_player(-1, -1, &mut gs.ecs),
+
+            VirtualKeyCode::Numpad3 | VirtualKeyCode::N => try_move_player(1, 1, &mut gs.ecs),
+
+            VirtualKeyCode::Numpad1 | VirtualKeyCode::B => try_move_player(-1, 1, &mut gs.ecs),
 
             // We don't care about this key
             _ => {
