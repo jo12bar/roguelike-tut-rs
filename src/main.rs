@@ -146,6 +146,7 @@ fn main() -> rltk::BError {
     }
 
     gs.ecs.insert(map);
+    gs.ecs.insert(PlayerPos::new(player_x, player_y));
 
     rltk::main_loop(context, gs)
 }

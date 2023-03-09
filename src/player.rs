@@ -1,9 +1,45 @@
-use std::cmp::{max, min};
+use std::{
+    cmp::{max, min},
+    ops::{Deref, DerefMut},
+};
 
 use rltk::{Rltk, VirtualKeyCode};
 use specs::prelude::*;
 
 use crate::{Map, Player, Position, RunState, State, TileType, Viewshed};
+
+/// The player's position. Just a newtype wrapper over a [`rltk::Point`].
+///
+/// Allows for unambiguously storing the player position as a specs resource.
+#[derive(Copy, Clone, Debug)]
+#[repr(transparent)]
+pub struct PlayerPos(pub rltk::Point);
+
+impl PlayerPos {
+    pub const fn new(x: i32, y: i32) -> Self {
+        Self(rltk::Point { x, y })
+    }
+
+    /// Update the tracked player position with new (x, y) coords
+    pub fn update(&mut self, x: i32, y: i32) {
+        self.0.x = x;
+        self.0.y = y;
+    }
+}
+
+impl Deref for PlayerPos {
+    type Target = rltk::Point;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for PlayerPos {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
 
 /// Try to move the player by a certain delta vector, if the ECS contains
 /// at least one entity that has both the [`Position`] and [`Player`] components.
@@ -23,6 +59,10 @@ pub fn try_move_player(delta_x: i32, delta_y: i32, ecs: &mut World) {
 
             // need to update the viewshed if the player moved somewhere!
             viewshed.dirty = true;
+
+            // Update the player position resource
+            let mut ppos = ecs.write_resource::<PlayerPos>();
+            ppos.update(pos.x, pos.y);
         }
     }
 }
