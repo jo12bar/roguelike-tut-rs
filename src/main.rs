@@ -1,5 +1,6 @@
 mod components;
 mod map;
+mod monster_ai_system;
 mod player;
 mod rect;
 mod render;
@@ -7,6 +8,7 @@ mod visibility_system;
 
 pub use self::components::*;
 pub use self::map::*;
+pub use self::monster_ai_system::*;
 pub use self::player::*;
 pub use self::rect::*;
 pub use self::render::*;
@@ -15,14 +17,25 @@ pub use self::visibility_system::*;
 use rltk::{GameState, Rltk, RltkBuilder, RGB};
 use specs::prelude::*;
 
+/// The game is either "Running" or "Waiting for Input."
+#[derive(PartialEq, Copy, Clone, Debug)]
+pub enum RunState {
+    Paused,
+    Running,
+}
+
 /// Global game state.
 pub struct State {
-    ecs: World,
+    pub ecs: World,
+    pub runstate: RunState,
 }
 
 impl Default for State {
     fn default() -> Self {
-        Self { ecs: World::new() }
+        Self {
+            ecs: World::new(),
+            runstate: RunState::Running,
+        }
     }
 }
 
@@ -31,6 +44,10 @@ impl State {
     fn run_systems(&mut self) {
         let mut vis = VisibilitySystem;
         vis.run_now(&self.ecs);
+
+        let mut mob = MonsterAI;
+        mob.run_now(&self.ecs);
+
         self.ecs.maintain();
     }
 }
@@ -39,8 +56,14 @@ impl GameState for State {
     fn tick(&mut self, ctx: &mut Rltk) {
         ctx.cls();
 
-        player_input(self, ctx); // handle player input
-        self.run_systems(); // tick the ECS
+        // Only tick the ECS _once_ if the current runstate is "Running".
+        // Otherwise, wait for player input.
+        if self.runstate == RunState::Running {
+            self.run_systems();
+            self.runstate = RunState::Paused;
+        } else {
+            self.runstate = player_input(self, ctx);
+        }
 
         // Render the map
         draw_map(&self.ecs, ctx);
@@ -71,10 +94,13 @@ fn main() -> rltk::BError {
     gs.ecs.register::<Position>();
     gs.ecs.register::<Renderable>();
     gs.ecs.register::<Player>();
+    gs.ecs.register::<Monster>();
     gs.ecs.register::<Viewshed>();
 
     let map = Map::new_map_rooms_and_corridors();
     let (player_x, player_y) = map.rooms[0].center();
+
+    let mut rng = rltk::RandomNumberGenerator::new();
 
     // Create the player
     gs.ecs
@@ -95,11 +121,19 @@ fn main() -> rltk::BError {
     // Add monsters to the center of each room (except the starting room)
     for room in map.rooms.iter().skip(1) {
         let (x, y) = room.center();
+
+        // 50/50 chance of spawning an orc or a goblin
+        let roll = rng.roll_dice(1, 2);
+        let glyph = match roll {
+            1 => rltk::to_cp437('g'),
+            _ => rltk::to_cp437('o'),
+        };
+
         gs.ecs
             .create_entity()
             .with(Position::from((x, y)))
             .with(Renderable {
-                glyph: rltk::to_cp437('g'),
+                glyph,
                 fg: RGB::named(rltk::RED),
                 ..Default::default()
             })
@@ -107,6 +141,7 @@ fn main() -> rltk::BError {
                 range: 8,
                 ..Default::default()
             })
+            .with(Monster)
             .build();
     }
 

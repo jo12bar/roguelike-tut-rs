@@ -37,6 +37,10 @@ impl Default for Renderable {
 #[derive(Component, Debug, Default)]
 pub struct Player;
 
+/// Indicates that an entity is a Monster.
+#[derive(Component, Debug, Default)]
+pub struct Monster;
+
 /// Describes which tiles are visible to an entity, and what the entity's
 /// view range is.
 #[derive(Component, Debug)]
