@@ -1,6 +1,7 @@
 use std::cmp::{max, min};
 
 use rltk::{Algorithm2D, BaseMap, Point, RandomNumberGenerator};
+use specs::Entity;
 
 use crate::Rect;
 
@@ -48,6 +49,9 @@ pub struct Map {
     /// An element in this vector will be `true` if the corresponding tile in
     /// [`Self::tiles`] is blocked from access.
     pub blocked: Vec<bool>,
+
+    /// A record of which entities are present in each tile of the map.
+    pub tile_content: Vec<Vec<Entity>>,
 }
 
 impl Map {
@@ -95,6 +99,13 @@ impl Map {
         }
     }
 
+    /// Clear out all entity handles in every tile location from [`Self::tile_content`].
+    pub fn clear_content_index(&mut self) {
+        for content in self.tile_content.iter_mut() {
+            content.clear();
+        }
+    }
+
     /// Create a new map with randomly-placed rooms that are connected by corridors.
     ///
     /// The map will have a width of 80 and a height of 50.
@@ -108,6 +119,7 @@ impl Map {
             revealed_tiles: vec![false; 80 * 50],
             visible_tiles: vec![false; 80 * 50],
             blocked: vec![false; 80 * 50],
+            tile_content: vec![Vec::new(); 80 * 50],
         };
 
         const MAX_ROOMS: i32 = 30;

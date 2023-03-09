@@ -2,7 +2,7 @@ use std::fmt;
 
 use rltk::RGB;
 use specs::prelude::*;
-use specs::Component;
+use specs::{Component, Entity};
 
 /// Tracks the location of an entity.
 #[derive(Component, Default, Debug)]
@@ -93,3 +93,40 @@ impl Default for Viewshed {
 /// other entities.
 #[derive(Component, Debug, Default)]
 pub struct BlocksTile;
+
+/// Statistics influencing an entity's health, attack power, defense, etc.
+#[derive(Component, Debug, Default)]
+pub struct CombatStats {
+    pub max_hp: i32,
+    pub hp: i32,
+    pub defense: i32,
+    pub power: i32,
+}
+
+/// Indicates that an entity wants to attack another entity this ECS tick (via melee).
+#[derive(Component, Debug, Clone)]
+pub struct WantsToMelee {
+    pub target: Entity,
+}
+
+/// The cumulative sum of damage that will be inflicted on an entity this ECS tick.
+#[derive(Component, Debug, Default, Clone)]
+pub struct SufferDamage {
+    pub amount: Vec<i32>,
+}
+
+impl SufferDamage {
+    /// Add a new damage source to a victim entity's SufferDamage component.
+    pub fn new_damage(store: &mut WriteStorage<Self>, victim: Entity, amount: i32) {
+        if let Some(suffering) = store.get_mut(victim) {
+            suffering.amount.push(amount);
+        } else {
+            let dmg = Self {
+                amount: vec![amount],
+            };
+            store.insert(victim, dmg).expect(
+                "Unable to insert a brand-new incoming damage list into store for victim entity",
+            );
+        }
+    }
+}

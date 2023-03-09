@@ -1,6 +1,8 @@
 mod components;
+mod damage_system;
 mod map;
 mod map_indexing_system;
+mod melee_combat_system;
 mod monster_ai_system;
 mod player;
 mod rect;
@@ -9,12 +11,14 @@ mod visibility_system;
 
 pub use self::components::*;
 pub use self::map::*;
-pub use self::map_indexing_system::*;
-pub use self::monster_ai_system::*;
+pub use self::map_indexing_system::MapIndexingSystem;
+pub use self::melee_combat_system::MeleeCombatSystem;
+pub use self::monster_ai_system::MonsterAI;
 pub use self::player::*;
-pub use self::rect::*;
+pub use self::rect::Rect;
 pub use self::render::*;
-pub use self::visibility_system::*;
+pub use self::visibility_system::VisibilitySystem;
+pub use damage_system::DamageSystem;
 
 use rltk::{GameState, Rltk, RltkBuilder, RGB};
 use specs::prelude::*;
@@ -53,6 +57,11 @@ impl State {
         let mut mapindex = MapIndexingSystem;
         mapindex.run_now(&self.ecs);
 
+        let mut melee = MeleeCombatSystem;
+        melee.run_now(&self.ecs);
+        let mut damage = DamageSystem;
+        damage.run_now(&self.ecs);
+
         self.ecs.maintain();
     }
 }
@@ -65,6 +74,7 @@ impl GameState for State {
         // Otherwise, wait for player input.
         if self.runstate == RunState::Running {
             self.run_systems();
+            damage_system::delete_the_dead(&mut self.ecs);
             self.runstate = RunState::Paused;
         } else {
             self.runstate = player_input(self, ctx);
@@ -105,6 +115,9 @@ fn main() -> rltk::BError {
     gs.ecs.register::<Name>();
     gs.ecs.register::<Viewshed>();
     gs.ecs.register::<BlocksTile>();
+    gs.ecs.register::<CombatStats>();
+    gs.ecs.register::<WantsToMelee>();
+    gs.ecs.register::<SufferDamage>();
 
     let map = Map::new_map_rooms_and_corridors();
     let (player_x, player_y) = map.rooms[0].center();
@@ -114,18 +127,24 @@ fn main() -> rltk::BError {
     // Create the player
     gs.ecs
         .create_entity()
+        .with(Player)
+        .with(Name::from("Player"))
         .with(Position::from((player_x, player_y)))
         .with(Renderable {
             glyph: rltk::to_cp437('@'),
             fg: RGB::named(rltk::YELLOW),
             ..Default::default()
         })
-        .with(Player)
         .with(Viewshed {
             range: 8,
             ..Default::default()
         })
-        .with(Name::from("Player"))
+        .with(CombatStats {
+            max_hp: 30,
+            hp: 30,
+            defense: 2,
+            power: 5,
+        })
         .build();
 
     // Add monsters to the center of each room (except the starting room)
@@ -141,6 +160,8 @@ fn main() -> rltk::BError {
 
         gs.ecs
             .create_entity()
+            .with(Monster)
+            .with(Name::from(format!("{name} #{i}")))
             .with(Position::from((x, y)))
             .with(Renderable {
                 glyph,
@@ -151,9 +172,13 @@ fn main() -> rltk::BError {
                 range: 8,
                 ..Default::default()
             })
-            .with(Monster)
-            .with(Name::from(format!("{name} #{i}")))
             .with(BlocksTile)
+            .with(CombatStats {
+                max_hp: 16,
+                hp: 16,
+                defense: 1,
+                power: 4,
+            })
             .build();
     }
 
