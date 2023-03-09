@@ -11,125 +11,118 @@ pub enum TileType {
     Floor,
 }
 
-/// Convert (x, y) coordinates to an offset in an array of tiles.
-///
-/// Assumes that each row of the screen is 80 tiles wide. Therefore, each time
-/// `y` increases by 1, the output increases by `80`.
-pub const fn xy_idx(x: i32, y: i32) -> usize {
-    (y as usize * 80) + x as usize
+/// A level map. This includes all the tiles, rooms, and so on that constitute
+/// the level's layout.
+pub struct Map {
+    /// An array of all map tiles.
+    ///
+    /// Use [`Self::xy_idx()`] to convert (x, y) coordinates into indexes in this array.
+    pub tiles: Vec<TileType>,
+
+    /// A list of all rooms contained in this map.
+    pub rooms: Vec<Rect>,
+
+    /// The map's width.
+    pub width: i32,
+    /// The map's height.
+    pub height: i32,
 }
 
-/// Create a simple game map. The map will have solid boundaries and 400 randomly-placed
-/// walls. It'll probably look awful.
-pub fn new_map_test() -> Vec<TileType> {
-    let mut map = vec![TileType::Floor; 80 * 50];
-
-    // Make all boundaries walls
-    for x in 0..80 {
-        map[xy_idx(x, 0)] = TileType::Wall;
-        map[xy_idx(x, 49)] = TileType::Wall;
-    }
-    for y in 0..50 {
-        map[xy_idx(0, y)] = TileType::Wall;
-        map[xy_idx(79, y)] = TileType::Wall;
+impl Map {
+    /// Convert (x, y) coordinates to an index into [`Self::tiles`].
+    pub const fn xy_idx(&self, x: i32, y: i32) -> usize {
+        (y as usize * self.width as usize) + x as usize
     }
 
-    // Randomly place a bunch of other walls in other places.
-    let mut rng = RandomNumberGenerator::new();
-
-    for _ in 0..400 {
-        let x = rng.roll_dice(1, 79);
-        let y = rng.roll_dice(1, 49);
-        let idx = xy_idx(x, y);
-
-        // Don't put a wall where the player spawns!
-        if idx != xy_idx(40, 25) {
-            map[idx] = TileType::Wall;
-        }
-    }
-
-    map
-}
-
-/// Create a new map with randomly-placed rooms that are connected by corridors.
-pub fn new_map_rooms_and_corridors() -> (Vec<Rect>, Vec<TileType>) {
-    let mut map = vec![TileType::Wall; 80 * 50];
-
-    let mut rooms: Vec<Rect> = Vec::new();
-    const MAX_ROOMS: i32 = 30;
-    const MIN_SIZE: i32 = 6;
-    const MAX_SIZE: i32 = 10;
-
-    let mut rng = RandomNumberGenerator::new();
-
-    for _ in 0..MAX_ROOMS {
-        let w = rng.range(MIN_SIZE, MAX_SIZE);
-        let h = rng.range(MIN_SIZE, MAX_SIZE);
-        let x = rng.roll_dice(1, 80 - w - 1) - 1;
-        let y = rng.roll_dice(1, 50 - h - 1) - 1;
-        let new_room = Rect::new(x, y, w, h);
-
-        if !rooms
-            .iter()
-            .any(|other_room| new_room.intersect(other_room))
-        {
-            apply_room_to_map(&new_room, &mut map);
-
-            if !rooms.is_empty() {
-                let (new_x, new_y) = new_room.center();
-                let (prev_x, prev_y) = rooms[rooms.len() - 1].center();
-                if rng.range(0, 2) == 1 {
-                    apply_horizontal_tunnel(&mut map, prev_x, new_x, prev_y);
-                    apply_vertical_tunnel(&mut map, prev_y, new_y, new_x);
-                } else {
-                    apply_vertical_tunnel(&mut map, prev_y, new_y, prev_x);
-                    apply_horizontal_tunnel(&mut map, prev_x, new_x, new_y);
-                }
+    /// Add a rectangular room made entirely of [`TileType::Floor`].
+    fn apply_room_to_map(&mut self, room: &Rect) {
+        for y in room.y1 + 1..=room.y2 {
+            for x in room.x1 + 1..=room.x2 {
+                let idx = self.xy_idx(x, y);
+                self.tiles[idx] = TileType::Floor;
             }
-
-            rooms.push(new_room);
         }
     }
 
-    (rooms, map)
-}
-
-/// Add a rectangular room, made entirely of [`TileType::Floor`], to a tile map.
-fn apply_room_to_map(room: &Rect, map: &mut [TileType]) {
-    for y in room.y1 + 1..=room.y2 {
-        for x in room.x1 + 1..=room.x2 {
-            map[xy_idx(x, y)] = TileType::Floor;
+    /// Make a horizontal tunnel between two x-coordinates at a specific y-coordinate.
+    /// The tunnel is made entirely of [`TileType::Floor`].
+    fn apply_horizontal_tunnel(&mut self, x1: i32, x2: i32, y: i32) {
+        for x in min(x1, x2)..=max(x1, x2) {
+            let idx = self.xy_idx(x, y);
+            if idx > 0 && idx < 80 * 50 {
+                self.tiles[idx] = TileType::Floor;
+            }
         }
     }
-}
 
-/// Make a horizontal tunnel between two x-coordinates at a specific y-coordinate.
-/// The tunnel is made entirely of [`TileType::Floor`].
-fn apply_horizontal_tunnel(map: &mut [TileType], x1: i32, x2: i32, y: i32) {
-    for x in min(x1, x2)..=max(x1, x2) {
-        let idx = xy_idx(x, y);
-        if idx > 0 && idx < 80 * 50 {
-            map[idx] = TileType::Floor;
+    /// Make a vertical tunnel between two y-coordinates at a specific x-coordinate.
+    /// The tunnel is made entirely of [`TileType::Floor`].
+    fn apply_vertical_tunnel(&mut self, y1: i32, y2: i32, x: i32) {
+        for y in min(y1, y2)..=max(y1, y2) {
+            let idx = self.xy_idx(x, y);
+            if idx > 0 && idx < 80 * 50 {
+                self.tiles[idx] = TileType::Floor;
+            }
         }
     }
-}
 
-/// Make a vertical tunnel between two y-coordinates at a specific x-coordinate.
-/// The tunnel is made entirely of [`TileType::Floor`].
-fn apply_vertical_tunnel(map: &mut [TileType], y1: i32, y2: i32, x: i32) {
-    for y in min(y1, y2)..=max(y1, y2) {
-        let idx = xy_idx(x, y);
-        if idx > 0 && idx < 80 * 50 {
-            map[idx] = TileType::Floor;
+    /// Create a new map with randomly-placed rooms that are connected by corridors.
+    ///
+    /// The map will have a width of 80 and a height of 50.
+    /// This uses the algorithm from http://rogueliketutorials.com/tutorials/tcod/part-3/.
+    pub fn new_map_rooms_and_corridors() -> Self {
+        let mut map = Self {
+            tiles: vec![TileType::Wall; 80 * 50],
+            rooms: Vec::new(),
+            width: 80,
+            height: 50,
+        };
+
+        const MAX_ROOMS: i32 = 30;
+        const MIN_SIZE: i32 = 6;
+        const MAX_SIZE: i32 = 10;
+
+        let mut rng = RandomNumberGenerator::new();
+
+        for _ in 0..MAX_ROOMS {
+            let w = rng.range(MIN_SIZE, MAX_SIZE);
+            let h = rng.range(MIN_SIZE, MAX_SIZE);
+            let x = rng.roll_dice(1, 80 - w - 1) - 1;
+            let y = rng.roll_dice(1, 50 - h - 1) - 1;
+            let new_room = Rect::new(x, y, w, h);
+
+            if !map
+                .rooms
+                .iter()
+                .any(|other_room| new_room.intersect(other_room))
+            {
+                map.apply_room_to_map(&new_room);
+
+                if !map.rooms.is_empty() {
+                    let (new_x, new_y) = new_room.center();
+                    let (prev_x, prev_y) = map.rooms[map.rooms.len() - 1].center();
+                    if rng.range(0, 2) == 1 {
+                        map.apply_horizontal_tunnel(prev_x, new_x, prev_y);
+                        map.apply_vertical_tunnel(prev_y, new_y, new_x);
+                    } else {
+                        map.apply_vertical_tunnel(prev_y, new_y, prev_x);
+                        map.apply_horizontal_tunnel(prev_x, new_x, new_y);
+                    }
+                }
+
+                map.rooms.push(new_room);
+            }
         }
+
+        map
     }
 }
 
 /// Draw a game map on screen.
-pub fn draw_map(map: &[TileType], ctx: &mut Rltk) {
+pub fn draw_map(map: &Map, ctx: &mut Rltk) {
     let mut y = 0;
     let mut x = 0;
-    for tile in map.iter() {
+    for tile in map.tiles.iter() {
         // Render a tile depending on the tile type
         match tile {
             TileType::Floor => {
