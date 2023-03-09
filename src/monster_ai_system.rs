@@ -1,7 +1,7 @@
-use rltk::{console, field_of_view, Point};
+use rltk::console;
 use specs::prelude::*;
 
-use crate::{Map, Monster, Name, PlayerPos, Position, Viewshed};
+use crate::{Monster, Name, PlayerPos, Viewshed};
 
 /// A system that handles a [`Monster`]'s AI.
 pub struct MonsterAI;
