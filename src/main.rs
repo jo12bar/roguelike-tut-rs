@@ -1,5 +1,6 @@
 mod components;
 mod damage_system;
+mod gui;
 mod map;
 mod map_indexing_system;
 mod melee_combat_system;
@@ -115,6 +116,9 @@ impl GameState for State {
                 ctx.set(pos.x, pos.y, render.fg, render.bg, render.glyph);
             }
         }
+
+        // Draw the GUI on top of everything
+        gui::draw_ui(&self.ecs, ctx);
     }
 }
 
