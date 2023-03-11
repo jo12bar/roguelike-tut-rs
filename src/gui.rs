@@ -1,7 +1,7 @@
 use rltk::{Point, Rltk, RGB};
 use specs::prelude::*;
 
-use crate::{CombatStats, GameLog, Map, Name, Player, Position};
+use crate::{CombatStats, GameLog, Map, Name, Player, Position, DEBUG_MAP_VIEW};
 
 /// Draw the UI onto the game screen.
 pub fn draw_ui(ecs: &World, ctx: &mut Rltk) {
@@ -71,7 +71,10 @@ fn draw_tooltips(ecs: &World, ctx: &mut Rltk) {
     let mut tooltip: Vec<String> = Vec::new();
     for (name, position) in (&names, &positions).join() {
         let idx = map.xy_idx(position.x, position.y);
-        if position.x == mouse_x && position.y == mouse_y && map.visible_tiles[idx] {
+        if position.x == mouse_x
+            && position.y == mouse_y
+            && (map.visible_tiles[idx] || DEBUG_MAP_VIEW)
+        {
             tooltip.push(name.to_string());
         }
     }

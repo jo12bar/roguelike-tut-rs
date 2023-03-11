@@ -27,6 +27,11 @@ pub use self::visibility_system::VisibilitySystem;
 use rltk::{GameState, Rltk, RltkBuilder};
 use specs::prelude::*;
 
+/// Set this to `true` to show the entire map and all entities in it,
+/// regardless of what's actually visible. Tooltips and such should work
+/// long-range too.
+pub const DEBUG_MAP_VIEW: bool = cfg!(feature = "debug-map-view");
+
 /// The game is either "Running" or "Waiting for Input."
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub enum RunState {
@@ -115,7 +120,7 @@ impl GameState for State {
         for (pos, render) in (&positions, &renderables).join() {
             // Only render the entity if the player can currently see it!
             let idx = map.xy_idx(pos.x, pos.y);
-            if map.visible_tiles[idx] {
+            if map.visible_tiles[idx] || DEBUG_MAP_VIEW {
                 ctx.set(pos.x, pos.y, render.fg, render.bg, render.glyph);
             }
         }
@@ -172,10 +177,9 @@ fn run_game() -> rltk::BError {
     // Create the player
     let player_entity = spawner::player(&mut gs.ecs, player_x, player_y);
 
-    // Add monsters to the center of each room (except the starting room)
+    // Add monsters and items to each room (except the starting room)
     for room in map.rooms.iter().skip(1) {
-        let (x, y) = room.center();
-        spawner::random_monster(&mut gs.ecs, x, y);
+        spawner::spawn_room(&mut gs.ecs, room);
     }
 
     gs.ecs.insert(map);

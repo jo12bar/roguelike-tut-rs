@@ -31,6 +31,18 @@ impl Rect {
             ((self.y1 + self.y2) as f32 / 2.0).round() as i32,
         )
     }
+
+    /// Return the width of the rectangle.
+    #[inline]
+    pub const fn width(&self) -> i32 {
+        self.x2 - self.x1
+    }
+
+    /// Return the height of the rectangle.
+    #[inline]
+    pub const fn height(&self) -> i32 {
+        self.y2 - self.y1
+    }
 }
 
 /// Create a new rectangle from a pair of coordinates (x1, y1) and (x2, y2)

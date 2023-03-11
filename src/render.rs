@@ -1,7 +1,7 @@
 use rltk::{Rltk, RGB};
 use specs::World;
 
-use crate::{Map, TileType};
+use crate::{Map, TileType, DEBUG_MAP_VIEW};
 
 /// Draw a game map on screen. Only draws tiles visible within the player's viewshed.
 pub fn draw_map(ecs: &World, ctx: &mut Rltk) {
@@ -12,7 +12,7 @@ pub fn draw_map(ecs: &World, ctx: &mut Rltk) {
 
     for (idx, tile) in map.tiles.iter().enumerate() {
         // Render a tile depending on the tile type
-        if map.revealed_tiles[idx] {
+        if map.revealed_tiles[idx] || DEBUG_MAP_VIEW {
             let glyph;
             let mut fg;
 
