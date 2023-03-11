@@ -161,10 +161,10 @@ fn run_game() -> rltk::BError {
     gs.ecs.register::<WantsToMelee>();
     gs.ecs.register::<SufferDamage>();
 
-    let map = Map::new_map_rooms_and_corridors();
-    let (player_x, player_y) = map.rooms[0].center();
-
     let mut rng = rltk::RandomNumberGenerator::new();
+
+    let map = Map::new_map_rooms_and_corridors(&mut rng);
+    let (player_x, player_y) = map.rooms[0].center();
 
     // Create the player
     let player_entity = gs
@@ -233,6 +233,7 @@ fn run_game() -> rltk::BError {
     gs.ecs.insert(GameLog::from(
         vec!["Welcome to Rusty Roguelike".to_string()],
     ));
+    gs.ecs.insert(rng);
 
     rltk::main_loop(context, gs)
 }

@@ -116,7 +116,7 @@ impl Map {
     ///
     /// The map will have a width of 80 and a height of 50.
     /// This uses the algorithm from http://rogueliketutorials.com/tutorials/tcod/part-3/.
-    pub fn new_map_rooms_and_corridors() -> Self {
+    pub fn new_map_rooms_and_corridors(rng: &mut RandomNumberGenerator) -> Self {
         let mut map = Self {
             tiles: vec![TileType::Wall; MAPSIZE],
             rooms: Vec::new(),
@@ -131,8 +131,6 @@ impl Map {
         const MAX_ROOMS: i32 = 30;
         const MIN_SIZE: i32 = 6;
         const MAX_SIZE: i32 = 10;
-
-        let mut rng = RandomNumberGenerator::new();
 
         for _ in 0..MAX_ROOMS {
             let w = rng.range(MIN_SIZE, MAX_SIZE);
