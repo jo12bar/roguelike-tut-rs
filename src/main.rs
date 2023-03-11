@@ -9,6 +9,7 @@ mod monster_ai_system;
 mod player;
 mod rect;
 mod render;
+mod spawner;
 mod visibility_system;
 
 pub use self::components::*;
@@ -23,7 +24,7 @@ pub use self::rect::Rect;
 pub use self::render::*;
 pub use self::visibility_system::VisibilitySystem;
 
-use rltk::{GameState, Rltk, RltkBuilder, RGB};
+use rltk::{GameState, Rltk, RltkBuilder};
 use specs::prelude::*;
 
 /// The game is either "Running" or "Waiting for Input."
@@ -166,64 +167,15 @@ fn run_game() -> rltk::BError {
     let map = Map::new_map_rooms_and_corridors(&mut rng);
     let (player_x, player_y) = map.rooms[0].center();
 
+    gs.ecs.insert(rng);
+
     // Create the player
-    let player_entity = gs
-        .ecs
-        .create_entity()
-        .with(Player)
-        .with(Name::from("Player"))
-        .with(Position::from((player_x, player_y)))
-        .with(Renderable {
-            glyph: rltk::to_cp437('@'),
-            fg: RGB::named(rltk::YELLOW),
-            ..Default::default()
-        })
-        .with(Viewshed {
-            range: 8,
-            ..Default::default()
-        })
-        .with(CombatStats {
-            max_hp: 30,
-            hp: 30,
-            defense: 2,
-            power: 5,
-        })
-        .build();
-    let player_entity = PlayerEntity::from(player_entity);
+    let player_entity = spawner::player(&mut gs.ecs, player_x, player_y);
 
     // Add monsters to the center of each room (except the starting room)
-    for (i, room) in map.rooms.iter().skip(1).enumerate() {
+    for room in map.rooms.iter().skip(1) {
         let (x, y) = room.center();
-
-        // 50/50 chance of spawning an orc or a goblin
-        let roll = rng.roll_dice(1, 2);
-        let (glyph, name) = match roll {
-            1 => (rltk::to_cp437('g'), "Goblin"),
-            _ => (rltk::to_cp437('o'), "Orc"),
-        };
-
-        gs.ecs
-            .create_entity()
-            .with(Monster)
-            .with(Name::from(format!("{name} #{i}")))
-            .with(Position::from((x, y)))
-            .with(Renderable {
-                glyph,
-                fg: RGB::named(rltk::RED),
-                ..Default::default()
-            })
-            .with(Viewshed {
-                range: 8,
-                ..Default::default()
-            })
-            .with(BlocksTile)
-            .with(CombatStats {
-                max_hp: 16,
-                hp: 16,
-                defense: 1,
-                power: 4,
-            })
-            .build();
+        spawner::random_monster(&mut gs.ecs, x, y);
     }
 
     gs.ecs.insert(map);
@@ -233,7 +185,6 @@ fn run_game() -> rltk::BError {
     gs.ecs.insert(GameLog::from(
         vec!["Welcome to Rusty Roguelike".to_string()],
     ));
-    gs.ecs.insert(rng);
 
     rltk::main_loop(context, gs)
 }

@@ -23,10 +23,13 @@ impl Rect {
         self.x1 <= other.x2 && self.x2 >= other.x1 && self.y1 <= other.y2 && self.y2 >= other.y1
     }
 
-    /// Returns a coordinate, rounded down (floor) to the nearest integer,
+    /// Returns a coordinate, rounded to the nearest integer,
     /// describing the center of this rectangle.
-    pub const fn center(&self) -> (i32, i32) {
-        ((self.x1 + self.x2) / 2, (self.y1 + self.y2) / 2)
+    pub fn center(&self) -> (i32, i32) {
+        (
+            ((self.x1 + self.x2) as f32 / 2.0).round() as i32,
+            ((self.y1 + self.y2) as f32 / 2.0).round() as i32,
+        )
     }
 }
 
