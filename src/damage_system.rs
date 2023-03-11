@@ -1,7 +1,7 @@
 use rltk::console;
 use specs::prelude::*;
 
-use crate::{CombatStats, Player, SufferDamage};
+use crate::{CombatStats, GameLog, Name, Player, SufferDamage};
 
 /// Applies damage to entities that are schedules to [`SufferDamage`] this ECS tick.
 pub struct DamageSystem;
@@ -28,7 +28,9 @@ pub fn delete_the_dead(ecs: &mut World) {
     {
         let combat_stats = ecs.read_storage::<CombatStats>();
         let players = ecs.read_storage::<Player>();
+        let names = ecs.read_storage::<Name>();
         let entities = ecs.entities();
+        let mut log = ecs.write_resource::<GameLog>();
 
         for (entity, stats) in (&entities, &combat_stats).join() {
             if stats.hp < 1 {
@@ -36,8 +38,15 @@ pub fn delete_the_dead(ecs: &mut World) {
                 match player {
                     // don't delete the player entity; trigger a game over instead
                     Some(_) => console::log("You are dead"),
+
                     // delete the dead entity
-                    None => dead.push(entity),
+                    None => {
+                        let victim_name = names.get(entity);
+                        if let Some(victim_name) = victim_name {
+                            log.log(format!("{victim_name} is dead"));
+                        }
+                        dead.push(entity)
+                    }
                 }
             }
         }

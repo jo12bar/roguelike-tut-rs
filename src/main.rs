@@ -1,5 +1,6 @@
 mod components;
 mod damage_system;
+mod gamelog;
 mod gui;
 mod map;
 mod map_indexing_system;
@@ -11,6 +12,8 @@ mod render;
 mod visibility_system;
 
 pub use self::components::*;
+pub use self::damage_system::DamageSystem;
+pub use self::gamelog::GameLog;
 pub use self::map::*;
 pub use self::map_indexing_system::MapIndexingSystem;
 pub use self::melee_combat_system::MeleeCombatSystem;
@@ -19,7 +22,6 @@ pub use self::player::*;
 pub use self::rect::Rect;
 pub use self::render::*;
 pub use self::visibility_system::VisibilitySystem;
-pub use damage_system::DamageSystem;
 
 use rltk::{GameState, Rltk, RltkBuilder, RGB};
 use specs::prelude::*;
@@ -227,6 +229,9 @@ fn run_game() -> rltk::BError {
     gs.ecs.insert(PlayerPos::new(player_x, player_y));
     gs.ecs.insert(player_entity);
     gs.ecs.insert(RunState::PreRun);
+    gs.ecs.insert(GameLog::from(
+        vec!["Welcome to Rusty Roguelike".to_string()],
+    ));
 
     rltk::main_loop(context, gs)
 }

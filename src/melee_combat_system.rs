@@ -1,7 +1,6 @@
-use rltk::console;
 use specs::prelude::*;
 
-use crate::{CombatStats, Name, SufferDamage, WantsToMelee};
+use crate::{CombatStats, GameLog, Name, SufferDamage, WantsToMelee};
 
 /// A system that handles tracking and applying melee damage to entities every ECS tick.
 pub struct MeleeCombatSystem;
@@ -9,6 +8,7 @@ pub struct MeleeCombatSystem;
 impl<'a> System<'a> for MeleeCombatSystem {
     type SystemData = (
         Entities<'a>,
+        WriteExpect<'a, GameLog>,
         WriteStorage<'a, WantsToMelee>,
         ReadStorage<'a, Name>,
         ReadStorage<'a, CombatStats>,
@@ -17,7 +17,7 @@ impl<'a> System<'a> for MeleeCombatSystem {
 
     fn run(
         &mut self,
-        (entities, mut wants_to_melee, names, combat_stats, mut inflict_damage): Self::SystemData,
+        (entities, mut log, mut wants_to_melee, names, combat_stats, mut inflict_damage): Self::SystemData,
     ) {
         for (_entity, wants_to_melee, name, stats) in
             (&entities, &wants_to_melee, &names, &combat_stats).join()
@@ -30,9 +30,9 @@ impl<'a> System<'a> for MeleeCombatSystem {
                     let damage = i32::max(0, stats.power - target_stats.defense);
 
                     if damage == 0 {
-                        console::log(format!("{name} is unable to hurt {target_name}"));
+                        log.log(format!("{name} is unable to hurt {target_name}"));
                     } else {
-                        console::log(format!("{name} hits {target_name}, for {damage} hp."));
+                        log.log(format!("{name} hits {target_name}, for {damage} hp."));
                         SufferDamage::new_damage(
                             &mut inflict_damage,
                             wants_to_melee.target,
