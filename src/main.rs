@@ -146,6 +146,7 @@ fn run_game() -> rltk::BError {
         .with_fitscreen(true)
         .build()?;
     context.with_post_scanlines(true);
+    context.with_mouse_visibility(false);
 
     let mut gs = State::default();
 
