@@ -5,7 +5,7 @@ use specs::prelude::*;
 use specs::{Component, Entity};
 
 /// Tracks the location of an entity.
-#[derive(Component, Default, Debug)]
+#[derive(Component, Default, Debug, Copy, Clone)]
 pub struct Position {
     pub x: i32,
     pub y: i32,
@@ -64,6 +64,12 @@ pub struct InBackpack {
 #[derive(Component, Debug, Clone)]
 pub struct WantsToPickupItem {
     pub collected_by: Entity,
+    pub item: Entity,
+}
+
+/// Entities tagged with this component intend to drop an item from their backpack.
+#[derive(Component, Debug, Clone)]
+pub struct WantsToDropItem {
     pub item: Entity,
 }
 

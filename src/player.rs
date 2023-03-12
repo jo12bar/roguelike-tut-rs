@@ -143,25 +143,21 @@ pub fn player_input(gs: &mut State, ctx: &mut Rltk) -> RunState {
         // A key was pressed!
         Some(key) => match key {
             // Movement in cardinal directions
-            VirtualKeyCode::Left
-            | VirtualKeyCode::A
-            | VirtualKeyCode::H
-            | VirtualKeyCode::Numpad4 => try_move_player(-1, 0, &mut gs.ecs),
+            VirtualKeyCode::Left | VirtualKeyCode::H | VirtualKeyCode::Numpad4 => {
+                try_move_player(-1, 0, &mut gs.ecs)
+            }
 
-            VirtualKeyCode::Right
-            | VirtualKeyCode::D
-            | VirtualKeyCode::L
-            | VirtualKeyCode::Numpad6 => try_move_player(1, 0, &mut gs.ecs),
+            VirtualKeyCode::Right | VirtualKeyCode::L | VirtualKeyCode::Numpad6 => {
+                try_move_player(1, 0, &mut gs.ecs)
+            }
 
-            VirtualKeyCode::Up
-            | VirtualKeyCode::W
-            | VirtualKeyCode::K
-            | VirtualKeyCode::Numpad8 => try_move_player(0, -1, &mut gs.ecs),
+            VirtualKeyCode::Up | VirtualKeyCode::K | VirtualKeyCode::Numpad8 => {
+                try_move_player(0, -1, &mut gs.ecs)
+            }
 
-            VirtualKeyCode::Down
-            | VirtualKeyCode::S
-            | VirtualKeyCode::J
-            | VirtualKeyCode::Numpad2 => try_move_player(0, 1, &mut gs.ecs),
+            VirtualKeyCode::Down | VirtualKeyCode::J | VirtualKeyCode::Numpad2 => {
+                try_move_player(0, 1, &mut gs.ecs)
+            }
 
             // Movement in diagonal directions
             VirtualKeyCode::Numpad9 | VirtualKeyCode::I => try_move_player(1, -1, &mut gs.ecs),
@@ -175,6 +171,7 @@ pub fn player_input(gs: &mut State, ctx: &mut Rltk) -> RunState {
             // Item manipulation
             VirtualKeyCode::G => get_item(&mut gs.ecs),
             VirtualKeyCode::B => return RunState::ShowInventory,
+            VirtualKeyCode::D => return RunState::ShowDropItem,
 
             // We don't care about this key
             _ => {

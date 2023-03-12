@@ -16,7 +16,7 @@ mod visibility_system;
 pub use self::components::*;
 pub use self::damage_system::DamageSystem;
 pub use self::gamelog::GameLog;
-pub use self::inventory_system::ItemCollectionSystem;
+pub use self::inventory_system::*;
 pub use self::map::*;
 pub use self::map_indexing_system::MapIndexingSystem;
 pub use self::melee_combat_system::MeleeCombatSystem;
@@ -26,7 +26,6 @@ pub use self::rect::Rect;
 pub use self::render::*;
 pub use self::visibility_system::VisibilitySystem;
 
-use inventory_system::PotionUseSystem;
 use rltk::{GameState, Rltk, RltkBuilder};
 use specs::prelude::*;
 
@@ -43,6 +42,7 @@ pub enum RunState {
     PlayerTurn,
     MonsterTurn,
     ShowInventory,
+    ShowDropItem,
 }
 
 /// Global game state.
@@ -73,10 +73,12 @@ impl State {
         let mut damage = DamageSystem;
         damage.run_now(&self.ecs);
 
-        let mut pickup = ItemCollectionSystem;
-        pickup.run_now(&self.ecs);
-        let mut potions = PotionUseSystem;
-        potions.run_now(&self.ecs);
+        let mut pickup_items = ItemCollectionSystem;
+        pickup_items.run_now(&self.ecs);
+        let mut drop_items = ItemDropSystem;
+        drop_items.run_now(&self.ecs);
+        let mut use_potions = PotionUseSystem;
+        use_potions.run_now(&self.ecs);
 
         self.ecs.maintain();
     }
@@ -114,9 +116,9 @@ impl GameState for State {
             }
 
             RunState::ShowInventory => match gui::show_inventory(self, ctx) {
-                (gui::ItemMenuResult::Cancel, _) => newrunstate = RunState::AwaitingInput,
-                (gui::ItemMenuResult::NoResponse, _) => {}
-                (gui::ItemMenuResult::Selected, Some(item_entity)) => {
+                gui::ItemMenuResult::Cancel => newrunstate = RunState::AwaitingInput,
+                gui::ItemMenuResult::NoResponse => {}
+                gui::ItemMenuResult::Selected(item_entity) => {
                     let mut intent = self.ecs.write_storage::<WantsToDrinkPotion>();
                     intent
                         .insert(
@@ -128,10 +130,20 @@ impl GameState for State {
                         .expect("Unable to insert intent WantsToDrinkPotion for player");
                     newrunstate = RunState::PlayerTurn;
                 }
-                (gui::ItemMenuResult::Selected, None) => {
-                    let mut gamelog = self.ecs.fetch_mut::<GameLog>();
-                    gamelog.log("Weirdly, against all odds, you try to use Nothing!");
-                    newrunstate = RunState::AwaitingInput;
+            },
+
+            RunState::ShowDropItem => match gui::drop_item_menu(self, ctx) {
+                gui::ItemMenuResult::Cancel => newrunstate = RunState::AwaitingInput,
+                gui::ItemMenuResult::NoResponse => {}
+                gui::ItemMenuResult::Selected(item_entity) => {
+                    let mut intent = self.ecs.write_storage::<WantsToDropItem>();
+                    intent
+                        .insert(
+                            **self.ecs.fetch::<PlayerEntity>(),
+                            WantsToDropItem { item: item_entity },
+                        )
+                        .expect("Unable to insert intent WantsToDropItem for player");
+                    newrunstate = RunState::PlayerTurn;
                 }
             },
         }
@@ -197,6 +209,7 @@ fn run_game() -> rltk::BError {
     gs.ecs.register::<Potion>();
     gs.ecs.register::<InBackpack>();
     gs.ecs.register::<WantsToPickupItem>();
+    gs.ecs.register::<WantsToDropItem>();
     gs.ecs.register::<WantsToDrinkPotion>();
     gs.ecs.register::<Name>();
     gs.ecs.register::<Viewshed>();

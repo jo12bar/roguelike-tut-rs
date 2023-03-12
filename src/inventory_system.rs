@@ -2,7 +2,7 @@ use specs::prelude::*;
 
 use crate::{
     CombatStats, GameLog, InBackpack, Name, PlayerEntity, Position, Potion, WantsToDrinkPotion,
-    WantsToPickupItem,
+    WantsToDropItem, WantsToPickupItem,
 };
 
 /// Searches for any entities that [`WantsToPickupItem`] and let's them pick
@@ -43,6 +43,44 @@ impl<'a> System<'a> for ItemCollectionSystem {
         }
 
         wants_pickup.clear();
+    }
+}
+
+/// Whenever an entity [`WantsToDropItem`], remove the item from their inventory and
+/// place it at their location in the game world.
+pub struct ItemDropSystem;
+impl<'a> System<'a> for ItemDropSystem {
+    type SystemData = (
+        ReadExpect<'a, PlayerEntity>,
+        WriteExpect<'a, GameLog>,
+        Entities<'a>,
+        WriteStorage<'a, WantsToDropItem>,
+        ReadStorage<'a, Name>,
+        WriteStorage<'a, Position>,
+        WriteStorage<'a, InBackpack>,
+    );
+
+    fn run(
+        &mut self,
+        (player_entity, mut gamelog, entities, mut wants_drop, names, mut positions, mut backpack): Self::SystemData,
+    ) {
+        for (entity, to_drop) in (&entities, &wants_drop).join() {
+            let dropper_pos = *positions.get(entity).unwrap();
+
+            positions
+                .insert(to_drop.item, dropper_pos)
+                .expect("Unable to insert dropped item position");
+            backpack.remove(to_drop.item);
+
+            if entity == **player_entity {
+                gamelog.log(format!(
+                    "You drop the {}.",
+                    names.get(to_drop.item).unwrap()
+                ));
+            }
+        }
+
+        wants_drop.clear();
     }
 }
 

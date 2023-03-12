@@ -127,10 +127,24 @@ fn draw_tooltips(ecs: &World, ctx: &mut Rltk) {
 pub enum ItemMenuResult {
     Cancel,
     NoResponse,
-    Selected,
+    Selected(Entity),
 }
 
-pub fn show_inventory(gs: &mut State, ctx: &mut Rltk) -> (ItemMenuResult, Option<Entity>) {
+pub fn show_inventory(gs: &mut State, ctx: &mut Rltk) -> ItemMenuResult {
+    generic_item_selection_dialogue(gs, ctx, "Inventory", RGB::named(rltk::YELLOW))
+}
+
+/// Show a dialogue that allows the player to select an item to drop.
+pub fn drop_item_menu(gs: &mut State, ctx: &mut Rltk) -> ItemMenuResult {
+    generic_item_selection_dialogue(gs, ctx, "Drop which item?", RGB::named(rltk::ORANGE))
+}
+
+fn generic_item_selection_dialogue<S: ToString>(
+    gs: &mut State,
+    ctx: &mut Rltk,
+    title: S,
+    accent_color: RGB,
+) -> ItemMenuResult {
     let player_entity = gs.ecs.fetch::<PlayerEntity>();
     let names = gs.ecs.read_storage::<Name>();
     let backpack = gs.ecs.read_storage::<InBackpack>();
@@ -152,7 +166,6 @@ pub fn show_inventory(gs: &mut State, ctx: &mut Rltk) -> (ItemMenuResult, Option
     let mut x = menu_rect.x1;
     let mut y = menu_rect.y1;
 
-    // let mut y = (25 - (count / 2)) as i32;
     ctx.draw_box(
         x,
         y,
@@ -164,14 +177,14 @@ pub fn show_inventory(gs: &mut State, ctx: &mut Rltk) -> (ItemMenuResult, Option
     ctx.print_color(
         x + 1 + MENU_PADDING,
         y,
-        RGB::named(rltk::YELLOW),
+        accent_color,
         RGB::named(rltk::BLACK),
-        "Inventory",
+        title,
     );
     ctx.print_color(
         x + 1 + MENU_PADDING,
         menu_rect.y2,
-        RGB::named(rltk::YELLOW),
+        accent_color,
         RGB::named(rltk::BLACK),
         "ESCAPE to cancel",
     );
@@ -196,7 +209,7 @@ pub fn show_inventory(gs: &mut State, ctx: &mut Rltk) -> (ItemMenuResult, Option
         ctx.set(
             x + 1,
             y,
-            RGB::named(rltk::YELLOW),
+            accent_color,
             RGB::named(rltk::BLACK),
             97 + j as rltk::FontCharType,
         );
@@ -215,17 +228,14 @@ pub fn show_inventory(gs: &mut State, ctx: &mut Rltk) -> (ItemMenuResult, Option
     }
 
     match ctx.key {
-        None => (ItemMenuResult::NoResponse, None),
-        Some(VirtualKeyCode::Escape) => (ItemMenuResult::Cancel, None),
+        None => ItemMenuResult::NoResponse,
+        Some(VirtualKeyCode::Escape) => ItemMenuResult::Cancel,
         Some(key) => {
             let selection = rltk::letter_to_option(key);
             if selection > -1 && selection < count as i32 {
-                (
-                    ItemMenuResult::Selected,
-                    Some(equippable[selection as usize]),
-                )
+                ItemMenuResult::Selected(equippable[selection as usize])
             } else {
-                (ItemMenuResult::NoResponse, None)
+                ItemMenuResult::NoResponse
             }
         }
     }
