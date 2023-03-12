@@ -30,5 +30,6 @@ debug-map-view = []
 [dependencies]
 color-eyre = "0.6.2"
 rltk.workspace = true
+rustc-hash = "1.1.0"
 specs.workspace = true
 thiserror = "1.0.39"

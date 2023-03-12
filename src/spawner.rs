@@ -1,9 +1,10 @@
 use rltk::{RandomNumberGenerator, RGB};
+use rustc_hash::FxHashSet;
 use specs::prelude::*;
 
 use crate::{
-    BlocksTile, CombatStats, Monster, Name, Player, PlayerEntity, Position, Rect, Renderable,
-    Viewshed, MAPWIDTH,
+    BlocksTile, CombatStats, Item, Monster, Name, Player, PlayerEntity, Position, Potion, Rect,
+    Renderable, Viewshed, MAPWIDTH,
 };
 
 const MAX_MONSTERS: i32 = 4;
@@ -50,24 +51,44 @@ pub fn random_monster(ecs: &mut World, x: i32, y: i32) -> specs::Entity {
 
 /// Fills a room with monsters, items, and other stuff.
 pub fn spawn_room(ecs: &mut World, room: &Rect) {
-    let mut monster_spawn_points: Vec<usize> = Vec::new();
+    let mut monster_spawn_points: FxHashSet<usize> = FxHashSet::default();
+    let mut item_spawn_points: FxHashSet<usize> = FxHashSet::default();
+    monster_spawn_points.reserve(MAX_MONSTERS as _);
+    item_spawn_points.reserve(MAX_ITEMS as _);
 
-    // Figure out how many monsters to spawn, and where to put them
+    // Figure out how many monsters and items to spawn, and where to put them
     {
         let mut rng = ecs.write_resource::<RandomNumberGenerator>();
 
         // This gives a room a 50% chance of not having any monsters. If it does
         // have monsters, it will have between 1 and MAX_MONSTERS of them.
-        let num_monsters = rng.roll_dice(2, MAX_MONSTERS) - MAX_MONSTERS;
+        let num_monsters = (rng.roll_dice(2, MAX_MONSTERS) - MAX_MONSTERS).max(0);
 
-        for _i in 0..num_monsters {
+        // Give a room a 25% chance of having an item. If it does have
+        // items, it can have between 1 and MAX_ITEMS of them.
+        let num_items = (rng.roll_dice(4, MAX_ITEMS) - 3 * MAX_ITEMS).max(0);
+
+        for _ in 0..num_monsters {
             let mut added = false;
             while !added {
                 let x = (room.x1 + 1 + rng.roll_dice(1, i32::abs(room.width() - 1))) as usize;
                 let y = (room.y1 + 1 + rng.roll_dice(1, i32::abs(room.height() - 1))) as usize;
                 let idx = (y * MAPWIDTH) + x;
                 if !monster_spawn_points.contains(&idx) {
-                    monster_spawn_points.push(idx);
+                    monster_spawn_points.insert(idx);
+                    added = true;
+                }
+            }
+        }
+
+        for _ in 0..num_items {
+            let mut added = false;
+            while !added {
+                let x = (room.x1 + 1 + rng.roll_dice(1, i32::abs(room.width() - 1))) as usize;
+                let y = (room.y1 + 1 + rng.roll_dice(1, i32::abs(room.height() - 1))) as usize;
+                let idx = (y * MAPWIDTH) + x;
+                if !item_spawn_points.contains(&idx) {
+                    item_spawn_points.insert(idx);
                     added = true;
                 }
             }
@@ -79,6 +100,13 @@ pub fn spawn_room(ecs: &mut World, room: &Rect) {
         let x = *idx % MAPWIDTH;
         let y = *idx / MAPWIDTH;
         random_monster(ecs, x as i32, y as i32);
+    }
+
+    // Actually spawn the potions
+    for idx in item_spawn_points.iter() {
+        let x = *idx % MAPWIDTH;
+        let y = *idx / MAPWIDTH;
+        spawn_health_potion(ecs, x as i32, y as i32);
     }
 }
 
@@ -115,6 +143,20 @@ fn spawn_monster<S: ToString>(
         })
         .with(Viewshed {
             range: 8,
+            ..Default::default()
+        })
+        .build()
+}
+
+fn spawn_health_potion(ecs: &mut World, x: i32, y: i32) -> specs::Entity {
+    ecs.create_entity()
+        .with(Item)
+        .with(Potion { heal_amount: 8 })
+        .with(Name::from("Health Potion"))
+        .with(Position::from((x, y)))
+        .with(Renderable {
+            glyph: rltk::to_cp437('¡'),
+            fg: RGB::named(rltk::MAGENTA),
             ..Default::default()
         })
         .build()

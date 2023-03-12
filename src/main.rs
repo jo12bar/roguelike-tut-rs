@@ -2,6 +2,7 @@ mod components;
 mod damage_system;
 mod gamelog;
 mod gui;
+mod inventory_system;
 mod map;
 mod map_indexing_system;
 mod melee_combat_system;
@@ -15,6 +16,7 @@ mod visibility_system;
 pub use self::components::*;
 pub use self::damage_system::DamageSystem;
 pub use self::gamelog::GameLog;
+pub use self::inventory_system::ItemCollectionSystem;
 pub use self::map::*;
 pub use self::map_indexing_system::MapIndexingSystem;
 pub use self::melee_combat_system::MeleeCombatSystem;
@@ -68,6 +70,9 @@ impl State {
         melee.run_now(&self.ecs);
         let mut damage = DamageSystem;
         damage.run_now(&self.ecs);
+
+        let mut pickup = ItemCollectionSystem;
+        pickup.run_now(&self.ecs);
 
         self.ecs.maintain();
     }
@@ -160,6 +165,10 @@ fn run_game() -> rltk::BError {
     gs.ecs.register::<Renderable>();
     gs.ecs.register::<Player>();
     gs.ecs.register::<Monster>();
+    gs.ecs.register::<Item>();
+    gs.ecs.register::<Potion>();
+    gs.ecs.register::<InBackpack>();
+    gs.ecs.register::<WantsToPickupItem>();
     gs.ecs.register::<Name>();
     gs.ecs.register::<Viewshed>();
     gs.ecs.register::<BlocksTile>();

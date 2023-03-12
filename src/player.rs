@@ -6,7 +6,10 @@ use std::{
 use rltk::{Rltk, VirtualKeyCode};
 use specs::prelude::*;
 
-use crate::{CombatStats, Map, Player, Position, RunState, State, Viewshed, WantsToMelee};
+use crate::{
+    CombatStats, GameLog, Item, Map, Player, Position, RunState, State, Viewshed, WantsToMelee,
+    WantsToPickupItem,
+};
 
 /// The player's position. Just a newtype wrapper over a [`rltk::Point`].
 ///
@@ -169,6 +172,9 @@ pub fn player_input(gs: &mut State, ctx: &mut Rltk) -> RunState {
 
             VirtualKeyCode::Numpad1 | VirtualKeyCode::N => try_move_player(-1, 1, &mut gs.ecs),
 
+            // Item manipulation
+            VirtualKeyCode::G => get_item(&mut gs.ecs),
+
             // We don't care about this key
             _ => {
                 return RunState::AwaitingInput;
@@ -177,4 +183,37 @@ pub fn player_input(gs: &mut State, ctx: &mut Rltk) -> RunState {
     }
 
     RunState::PlayerTurn
+}
+
+/// Let the player pick up an item.
+fn get_item(ecs: &mut World) {
+    let player_pos = ecs.fetch::<PlayerPos>();
+    let player_entity = ecs.fetch::<PlayerEntity>();
+    let entities = ecs.entities();
+    let items = ecs.read_storage::<Item>();
+    let positions = ecs.read_storage::<Position>();
+    let mut gamelog = ecs.fetch_mut::<GameLog>();
+
+    let mut target_item: Option<Entity> = None;
+    for (item_entity, _item, position) in (&entities, &items, &positions).join() {
+        if position.x == player_pos.x && position.y == player_pos.y {
+            target_item = Some(item_entity);
+        }
+    }
+
+    match target_item {
+        None => gamelog.log("There is nothing here to pick up."),
+        Some(item) => {
+            let mut pickup = ecs.write_storage::<WantsToPickupItem>();
+            pickup
+                .insert(
+                    **player_entity,
+                    WantsToPickupItem {
+                        collected_by: **player_entity,
+                        item,
+                    },
+                )
+                .expect("Unable to insert `WantsToPickupItem` intent for player entity");
+        }
+    }
 }

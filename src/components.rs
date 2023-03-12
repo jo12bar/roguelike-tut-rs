@@ -43,6 +43,30 @@ pub struct Player;
 #[derive(Component, Debug, Default)]
 pub struct Monster;
 
+/// An item that can be picked up and used.
+#[derive(Component, Debug, Default)]
+pub struct Item;
+
+/// A healing potion.
+#[derive(Component, Debug, Default)]
+pub struct Potion {
+    pub heal_amount: i32,
+}
+
+/// Entities (such as items) tagged with this are in an entity's backpack.
+#[derive(Component, Debug, Clone)]
+pub struct InBackpack {
+    pub owner: Entity,
+}
+
+/// Entities tagged with this component are attempting to pick up an [`Item`]
+/// and put it into their own backpack this ECS tick.
+#[derive(Component, Debug, Clone)]
+pub struct WantsToPickupItem {
+    pub collected_by: Entity,
+    pub item: Entity,
+}
+
 /// An entity's name.
 #[derive(Component, Debug, Default)]
 pub struct Name {
