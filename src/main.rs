@@ -26,6 +26,7 @@ pub use self::rect::Rect;
 pub use self::render::*;
 pub use self::visibility_system::VisibilitySystem;
 
+use inventory_system::PotionUseSystem;
 use rltk::{GameState, Rltk, RltkBuilder};
 use specs::prelude::*;
 
@@ -41,6 +42,7 @@ pub enum RunState {
     PreRun,
     PlayerTurn,
     MonsterTurn,
+    ShowInventory,
 }
 
 /// Global game state.
@@ -73,6 +75,8 @@ impl State {
 
         let mut pickup = ItemCollectionSystem;
         pickup.run_now(&self.ecs);
+        let mut potions = PotionUseSystem;
+        potions.run_now(&self.ecs);
 
         self.ecs.maintain();
     }
@@ -95,9 +99,11 @@ impl GameState for State {
                 self.run_systems();
                 newrunstate = RunState::AwaitingInput;
             }
+
             RunState::AwaitingInput => {
                 newrunstate = player_input(self, ctx);
             }
+
             RunState::PlayerTurn => {
                 self.run_systems();
                 newrunstate = RunState::MonsterTurn;
@@ -106,6 +112,28 @@ impl GameState for State {
                 self.run_systems();
                 newrunstate = RunState::AwaitingInput;
             }
+
+            RunState::ShowInventory => match gui::show_inventory(self, ctx) {
+                (gui::ItemMenuResult::Cancel, _) => newrunstate = RunState::AwaitingInput,
+                (gui::ItemMenuResult::NoResponse, _) => {}
+                (gui::ItemMenuResult::Selected, Some(item_entity)) => {
+                    let mut intent = self.ecs.write_storage::<WantsToDrinkPotion>();
+                    intent
+                        .insert(
+                            **self.ecs.fetch::<PlayerEntity>(),
+                            WantsToDrinkPotion {
+                                potion: item_entity,
+                            },
+                        )
+                        .expect("Unable to insert intent WantsToDrinkPotion for player");
+                    newrunstate = RunState::PlayerTurn;
+                }
+                (gui::ItemMenuResult::Selected, None) => {
+                    let mut gamelog = self.ecs.fetch_mut::<GameLog>();
+                    gamelog.log("Weirdly, against all odds, you try to use Nothing!");
+                    newrunstate = RunState::AwaitingInput;
+                }
+            },
         }
 
         {
@@ -169,6 +197,7 @@ fn run_game() -> rltk::BError {
     gs.ecs.register::<Potion>();
     gs.ecs.register::<InBackpack>();
     gs.ecs.register::<WantsToPickupItem>();
+    gs.ecs.register::<WantsToDrinkPotion>();
     gs.ecs.register::<Name>();
     gs.ecs.register::<Viewshed>();
     gs.ecs.register::<BlocksTile>();

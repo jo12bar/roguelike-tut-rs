@@ -174,6 +174,7 @@ pub fn player_input(gs: &mut State, ctx: &mut Rltk) -> RunState {
 
             // Item manipulation
             VirtualKeyCode::G => get_item(&mut gs.ecs),
+            VirtualKeyCode::B => return RunState::ShowInventory,
 
             // We don't care about this key
             _ => {

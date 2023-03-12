@@ -67,6 +67,12 @@ pub struct WantsToPickupItem {
     pub item: Entity,
 }
 
+/// Entities tagged with this component intend to drink a potion from their backpack this ECS tick.
+#[derive(Component, Debug, Clone)]
+pub struct WantsToDrinkPotion {
+    pub potion: Entity,
+}
+
 /// An entity's name.
 #[derive(Component, Debug, Default)]
 pub struct Name {

@@ -18,6 +18,16 @@ impl Rect {
         }
     }
 
+    /// Create a new rectangle centered at (`x`, `y`) with a specified width and height.
+    pub fn new_centered(cx: i32, cy: i32, width: i32, height: i32) -> Self {
+        let x1 = (cx as f32 - (width as f32 / 2.0)).round() as i32;
+        let x2 = x1 + width;
+        let y1 = (cy as f32 - (height as f32 / 2.0)).round() as i32;
+        let y2 = y1 + height;
+
+        Self { x1, y1, x2, y2 }
+    }
+
     /// Returns true if this rectangle overlaps another rectangle.
     pub const fn intersect(&self, other: &Rect) -> bool {
         self.x1 <= other.x2 && self.x2 >= other.x1 && self.y1 <= other.y2 && self.y2 >= other.y1

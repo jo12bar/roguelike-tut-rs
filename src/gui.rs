@@ -1,7 +1,10 @@
-use rltk::{Point, Rltk, RGB};
+use rltk::{Point, Rltk, VirtualKeyCode, RGB};
 use specs::prelude::*;
 
-use crate::{CombatStats, GameLog, Map, Name, Player, Position, DEBUG_MAP_VIEW};
+use crate::{
+    CombatStats, GameLog, InBackpack, Map, Name, Player, PlayerEntity, Position, Rect, State,
+    DEBUG_MAP_VIEW, MAPHEIGHT, MAPWIDTH,
+};
 
 /// Draw the UI onto the game screen.
 pub fn draw_ui(ecs: &World, ctx: &mut Rltk) {
@@ -115,6 +118,115 @@ fn draw_tooltips(ecs: &World, ctx: &mut Rltk) {
                 y += 1;
             }
             ctx.print_color(arrow_pos.x, arrow_pos.y, fg, bg, "←-");
+        }
+    }
+}
+
+/// Things that can happen when the user does something with the item menu (inventory / backpack).
+#[derive(PartialEq, Eq, Copy, Clone)]
+pub enum ItemMenuResult {
+    Cancel,
+    NoResponse,
+    Selected,
+}
+
+pub fn show_inventory(gs: &mut State, ctx: &mut Rltk) -> (ItemMenuResult, Option<Entity>) {
+    let player_entity = gs.ecs.fetch::<PlayerEntity>();
+    let names = gs.ecs.read_storage::<Name>();
+    let backpack = gs.ecs.read_storage::<InBackpack>();
+    let entities = gs.ecs.entities();
+
+    // Figure out how many inventory items the player has
+    let inventory = (&backpack, &names)
+        .join()
+        .filter(|(backpack_item, _)| backpack_item.owner == **player_entity);
+    let count = inventory.count();
+
+    // Draw the inventory menu
+    const MAP_RECT: Rect = Rect::new(0, 0, MAPWIDTH as _, MAPHEIGHT as _);
+    const MENU_WIDTH: i32 = 31;
+    const MENU_PADDING: i32 = 1;
+    let (cx, cy) = MAP_RECT.center();
+    let menu_rect = Rect::new_centered(cx, cy, MENU_WIDTH, (count + 2) as i32 + MENU_PADDING);
+
+    let mut x = menu_rect.x1;
+    let mut y = menu_rect.y1;
+
+    // let mut y = (25 - (count / 2)) as i32;
+    ctx.draw_box(
+        x,
+        y,
+        MENU_WIDTH,
+        menu_rect.height(),
+        RGB::named(rltk::WHITE),
+        RGB::named(rltk::BLACK),
+    );
+    ctx.print_color(
+        x + 1 + MENU_PADDING,
+        y,
+        RGB::named(rltk::YELLOW),
+        RGB::named(rltk::BLACK),
+        "Inventory",
+    );
+    ctx.print_color(
+        x + 1 + MENU_PADDING,
+        menu_rect.y2,
+        RGB::named(rltk::YELLOW),
+        RGB::named(rltk::BLACK),
+        "ESCAPE to cancel",
+    );
+
+    x += 1 + MENU_PADDING;
+    y += 1 + MENU_PADDING;
+
+    let mut equippable: Vec<Entity> = Vec::with_capacity(count);
+
+    for (j, (entity, _, name)) in (&entities, &backpack, &names)
+        .join()
+        .filter(|(_, pack_item, _)| pack_item.owner == **player_entity)
+        .enumerate()
+    {
+        ctx.set(
+            x,
+            y,
+            RGB::named(rltk::WHITE),
+            RGB::named(rltk::BLACK),
+            rltk::to_cp437('('),
+        );
+        ctx.set(
+            x + 1,
+            y,
+            RGB::named(rltk::YELLOW),
+            RGB::named(rltk::BLACK),
+            97 + j as rltk::FontCharType,
+        );
+        ctx.set(
+            x + 2,
+            y,
+            RGB::named(rltk::WHITE),
+            RGB::named(rltk::BLACK),
+            rltk::to_cp437(')'),
+        );
+
+        ctx.print(x + 4, y, name.to_string());
+
+        equippable.push(entity);
+        y += 1;
+    }
+
+    match ctx.key {
+        None => (ItemMenuResult::NoResponse, None),
+        Some(VirtualKeyCode::Escape) => (ItemMenuResult::Cancel, None),
+        Some(key) => {
+            let selection = rltk::letter_to_option(key);
+            if selection > -1 && selection < count as i32 {
+                (
+                    ItemMenuResult::Selected,
+                    Some(equippable[selection as usize]),
+                )
+            } else {
+                (ItemMenuResult::NoResponse, None)
+            }
         }
     }
 }
