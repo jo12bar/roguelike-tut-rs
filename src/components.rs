@@ -23,6 +23,9 @@ pub struct Renderable {
     pub glyph: rltk::FontCharType,
     pub fg: RGB,
     pub bg: RGB,
+    /// Like a z-order. Entities with higher `render_order`s will render underneath
+    /// entities with lower `render_order`s.
+    pub render_order: i32,
 }
 
 impl Default for Renderable {
@@ -31,6 +34,7 @@ impl Default for Renderable {
             glyph: rltk::to_cp437('█'),
             fg: rltk::RGB::named(rltk::WHITE),
             bg: rltk::RGB::named(rltk::BLACK),
+            render_order: 0,
         }
     }
 }

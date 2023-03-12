@@ -1,7 +1,7 @@
 use rltk::{Rltk, RGB};
-use specs::World;
+use specs::prelude::*;
 
-use crate::{Map, TileType, DEBUG_MAP_VIEW};
+use crate::{Map, Position, Renderable, TileType, DEBUG_MAP_VIEW};
 
 /// Draw a game map on screen. Only draws tiles visible within the player's viewshed.
 pub fn draw_map(ecs: &World, ctx: &mut Rltk) {
@@ -40,6 +40,26 @@ pub fn draw_map(ecs: &World, ctx: &mut Rltk) {
         if x > map.width - 1 {
             x = 0;
             y += 1;
+        }
+    }
+}
+
+/// Render any entity that has [`Position`] and [`Renderable`].
+pub fn draw_entities(ecs: &World, ctx: &mut Rltk) {
+    let positions = ecs.read_storage::<Position>();
+    let renderables = ecs.read_storage::<Renderable>();
+    let map = ecs.fetch::<Map>();
+
+    let mut data = (&positions, &renderables).join().collect::<Vec<_>>();
+
+    // Sort entities by render order, so we render lower entities underneath higher entities.
+    data.sort_unstable_by(|&a, &b| b.1.render_order.cmp(&a.1.render_order));
+
+    for (pos, render) in data {
+        // Only render the entity if the player can currently see it!
+        let idx = map.xy_idx(pos.x, pos.y);
+        if map.visible_tiles[idx] || DEBUG_MAP_VIEW {
+            ctx.set(pos.x, pos.y, render.fg, render.bg, render.glyph);
         }
     }
 }

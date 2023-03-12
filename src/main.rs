@@ -23,7 +23,6 @@ pub use self::melee_combat_system::MeleeCombatSystem;
 pub use self::monster_ai_system::MonsterAI;
 pub use self::player::*;
 pub use self::rect::Rect;
-pub use self::render::*;
 pub use self::visibility_system::VisibilitySystem;
 
 use rltk::{GameState, Rltk, RltkBuilder};
@@ -96,6 +95,15 @@ impl GameState for State {
             newrunstate = *runstate;
         }
 
+        // Render the map
+        render::draw_map(&self.ecs, ctx);
+
+        // Render any entity that has a position
+        render::draw_entities(&self.ecs, ctx);
+
+        // Draw the GUI on top of everything
+        gui::draw_ui(&self.ecs, ctx);
+
         match newrunstate {
             RunState::PreRun => {
                 self.run_systems();
@@ -153,25 +161,6 @@ impl GameState for State {
             *runwriter = newrunstate;
         }
         damage_system::delete_the_dead(&mut self.ecs);
-
-        // Render the map
-        draw_map(&self.ecs, ctx);
-
-        // Render any entity that has a position
-        let positions = self.ecs.read_storage::<Position>();
-        let renderables = self.ecs.read_storage::<Renderable>();
-        let map = self.ecs.fetch::<Map>();
-
-        for (pos, render) in (&positions, &renderables).join() {
-            // Only render the entity if the player can currently see it!
-            let idx = map.xy_idx(pos.x, pos.y);
-            if map.visible_tiles[idx] || DEBUG_MAP_VIEW {
-                ctx.set(pos.x, pos.y, render.fg, render.bg, render.glyph);
-            }
-        }
-
-        // Draw the GUI on top of everything
-        gui::draw_ui(&self.ecs, ctx);
     }
 }
 
