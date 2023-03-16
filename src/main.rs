@@ -76,7 +76,7 @@ impl State {
         pickup_items.run_now(&self.ecs);
         let mut drop_items = ItemDropSystem;
         drop_items.run_now(&self.ecs);
-        let mut use_potions = PotionUseSystem;
+        let mut use_potions = ItemUseSystem;
         use_potions.run_now(&self.ecs);
 
         self.ecs.maintain();
@@ -127,13 +127,11 @@ impl GameState for State {
                 gui::ItemMenuResult::Cancel => newrunstate = RunState::AwaitingInput,
                 gui::ItemMenuResult::NoResponse => {}
                 gui::ItemMenuResult::Selected(item_entity) => {
-                    let mut intent = self.ecs.write_storage::<WantsToDrinkPotion>();
+                    let mut intent = self.ecs.write_storage::<WantsToUseItem>();
                     intent
                         .insert(
                             **self.ecs.fetch::<PlayerEntity>(),
-                            WantsToDrinkPotion {
-                                potion: item_entity,
-                            },
+                            WantsToUseItem { item: item_entity },
                         )
                         .expect("Unable to insert intent WantsToDrinkPotion for player");
                     newrunstate = RunState::PlayerTurn;
@@ -190,22 +188,7 @@ fn run_game() -> rltk::BError {
 
     let mut gs = State::default();
 
-    gs.ecs.register::<Position>();
-    gs.ecs.register::<Renderable>();
-    gs.ecs.register::<Player>();
-    gs.ecs.register::<Monster>();
-    gs.ecs.register::<Item>();
-    gs.ecs.register::<Potion>();
-    gs.ecs.register::<InBackpack>();
-    gs.ecs.register::<WantsToPickupItem>();
-    gs.ecs.register::<WantsToDropItem>();
-    gs.ecs.register::<WantsToDrinkPotion>();
-    gs.ecs.register::<Name>();
-    gs.ecs.register::<Viewshed>();
-    gs.ecs.register::<BlocksTile>();
-    gs.ecs.register::<CombatStats>();
-    gs.ecs.register::<WantsToMelee>();
-    gs.ecs.register::<SufferDamage>();
+    components::register_all_components(&mut gs.ecs);
 
     let mut rng = rltk::RandomNumberGenerator::new();
 

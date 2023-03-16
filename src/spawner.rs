@@ -3,8 +3,8 @@ use rustc_hash::FxHashSet;
 use specs::prelude::*;
 
 use crate::{
-    BlocksTile, CombatStats, Item, Monster, Name, Player, PlayerEntity, Position, Potion, Rect,
-    Renderable, Viewshed, MAPWIDTH,
+    BlocksTile, CombatStats, Consumable, InflictsDamage, Item, Monster, Name, Player, PlayerEntity,
+    Position, ProvidesHealing, Ranged, Rect, Renderable, Viewshed, MAPWIDTH,
 };
 
 const MAX_MONSTERS: i32 = 4;
@@ -103,11 +103,11 @@ pub fn spawn_room(ecs: &mut World, room: &Rect) {
         random_monster(ecs, x as i32, y as i32);
     }
 
-    // Actually spawn the potions
+    // Actually spawn the items
     for idx in item_spawn_points.iter() {
         let x = *idx % MAPWIDTH;
         let y = *idx / MAPWIDTH;
-        spawn_health_potion(ecs, x as i32, y as i32);
+        spawn_random_item(ecs, x as i32, y as i32);
     }
 }
 
@@ -150,15 +150,45 @@ fn spawn_monster<S: ToString>(
         .build()
 }
 
+fn spawn_random_item(ecs: &mut World, x: i32, y: i32) -> specs::Entity {
+    let roll = {
+        let mut rng = ecs.write_resource::<RandomNumberGenerator>();
+        rng.roll_dice(1, 2)
+    };
+
+    match roll {
+        1 => spawn_health_potion(ecs, x, y),
+        _ => spawn_magic_missile_scroll(ecs, x, y),
+    }
+}
+
 fn spawn_health_potion(ecs: &mut World, x: i32, y: i32) -> specs::Entity {
     ecs.create_entity()
         .with(Item)
-        .with(Potion { heal_amount: 8 })
+        .with(Consumable)
+        .with(ProvidesHealing { heal_amount: 8 })
         .with(Name::from("Health Potion"))
         .with(Position::from((x, y)))
         .with(Renderable {
             glyph: rltk::to_cp437('¡'),
             fg: RGB::named(rltk::MAGENTA),
+            render_order: 2,
+            ..Default::default()
+        })
+        .build()
+}
+
+fn spawn_magic_missile_scroll(ecs: &mut World, x: i32, y: i32) -> specs::Entity {
+    ecs.create_entity()
+        .with(Item)
+        .with(Consumable)
+        .with(Ranged { range: 6 })
+        .with(InflictsDamage { damage: 8 })
+        .with(Name::from("Magic Missile Scroll"))
+        .with(Position::from((x, y)))
+        .with(Renderable {
+            glyph: rltk::to_cp437(')'),
+            fg: RGB::named(rltk::CYAN),
             render_order: 2,
             ..Default::default()
         })

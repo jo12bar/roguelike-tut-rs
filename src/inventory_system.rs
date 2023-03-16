@@ -1,8 +1,8 @@
 use specs::prelude::*;
 
 use crate::{
-    CombatStats, GameLog, InBackpack, Name, PlayerEntity, Position, Potion, WantsToDrinkPotion,
-    WantsToDropItem, WantsToPickupItem,
+    CombatStats, Consumable, GameLog, InBackpack, Name, PlayerEntity, Position, ProvidesHealing,
+    WantsToDropItem, WantsToPickupItem, WantsToUseItem,
 };
 
 /// Searches for any entities that [`WantsToPickupItem`] and let's them pick
@@ -84,41 +84,57 @@ impl<'a> System<'a> for ItemDropSystem {
     }
 }
 
-/// A system that allows entities that [`WantsToDrinkPotion`] to drink their potion.
-pub struct PotionUseSystem;
+/// A system that allows entities that [`WantsToUseItem`] to use their item.
+pub struct ItemUseSystem;
 
-impl<'a> System<'a> for PotionUseSystem {
+impl<'a> System<'a> for ItemUseSystem {
     type SystemData = (
         ReadExpect<'a, PlayerEntity>,
         WriteExpect<'a, GameLog>,
         Entities<'a>,
-        WriteStorage<'a, WantsToDrinkPotion>,
+        WriteStorage<'a, WantsToUseItem>,
         ReadStorage<'a, Name>,
-        ReadStorage<'a, Potion>,
+        ReadStorage<'a, ProvidesHealing>,
+        ReadStorage<'a, Consumable>,
         WriteStorage<'a, CombatStats>,
     );
 
     fn run(
         &mut self,
-        (player_entity, mut gamelog, entities, mut wants_drink, names, potions, mut combat_stats): Self::SystemData,
+        (
+            player_entity,
+            mut gamelog,
+            entities,
+            mut wants_use_item,
+            names,
+            healing,
+            consumables,
+            mut combat_stats,
+        ): Self::SystemData,
     ) {
-        for (entity, drink, stats) in (&entities, &wants_drink, &mut combat_stats).join() {
-            let potion = potions.get(drink.potion);
-            if let Some(potion) = potion {
-                stats.hp = i32::min(stats.max_hp, stats.hp + potion.heal_amount);
-                if entity == **player_entity {
-                    gamelog.log(format!(
-                        "You drink the {}, healing {} hp.",
-                        names.get(drink.potion).unwrap(),
-                        potion.heal_amount
-                    ));
+        for (entity, use_item) in (&entities, &wants_use_item).join() {
+            // If the item provides healing, heal the user
+            if let Some(healer) = healing.get(use_item.item) {
+                if let Some(stats) = combat_stats.get_mut(entity) {
+                    stats.hp = i32::min(stats.max_hp, stats.hp + healer.heal_amount);
+                    if entity == **player_entity {
+                        gamelog.log(format!(
+                            "You drink the {}, healing {} hp.",
+                            names.get(use_item.item).unwrap(),
+                            healer.heal_amount
+                        ));
+                    }
                 }
+            }
+
+            // Delete the item if it's consumable
+            if consumables.get(use_item.item).is_some() {
                 entities
-                    .delete(drink.potion)
+                    .delete(use_item.item)
                     .expect("Failed to delete potion entity that just got drank");
             }
         }
 
-        wants_drink.clear();
+        wants_use_item.clear();
     }
 }

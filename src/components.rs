@@ -4,6 +4,28 @@ use rltk::RGB;
 use specs::prelude::*;
 use specs::{Component, Entity};
 
+pub fn register_all_components(ecs: &mut World) {
+    ecs.register::<Position>();
+    ecs.register::<Renderable>();
+    ecs.register::<Player>();
+    ecs.register::<Monster>();
+    ecs.register::<Item>();
+    ecs.register::<Consumable>();
+    ecs.register::<ProvidesHealing>();
+    ecs.register::<Ranged>();
+    ecs.register::<InflictsDamage>();
+    ecs.register::<InBackpack>();
+    ecs.register::<WantsToPickupItem>();
+    ecs.register::<WantsToDropItem>();
+    ecs.register::<WantsToUseItem>();
+    ecs.register::<Name>();
+    ecs.register::<Viewshed>();
+    ecs.register::<BlocksTile>();
+    ecs.register::<CombatStats>();
+    ecs.register::<WantsToMelee>();
+    ecs.register::<SufferDamage>();
+}
+
 /// Tracks the location of an entity.
 #[derive(Component, Default, Debug, Copy, Clone)]
 pub struct Position {
@@ -51,10 +73,29 @@ pub struct Monster;
 #[derive(Component, Debug, Default)]
 pub struct Item;
 
-/// A healing potion.
+/// Indicates that an item is consumable (i.e. can be used up).
 #[derive(Component, Debug, Default)]
-pub struct Potion {
+pub struct Consumable;
+
+/// Indicates that an item heals the user.
+#[derive(Component, Debug, Default)]
+pub struct ProvidesHealing {
     pub heal_amount: i32,
+}
+
+/// Indicates that an item is "Ranged". This typically means that it can be shot,
+/// thrown, and so on.
+#[derive(Component, Debug, Default)]
+pub struct Ranged {
+    /// How far the entity can be thrown
+    pub range: i32,
+}
+
+/// Indicates that an item can inflict damage upon another entity.
+#[derive(Component, Debug, Default)]
+pub struct InflictsDamage {
+    /// How much damage this entity can inflict
+    pub damage: i32,
 }
 
 /// Entities (such as items) tagged with this are in an entity's backpack.
@@ -77,10 +118,10 @@ pub struct WantsToDropItem {
     pub item: Entity,
 }
 
-/// Entities tagged with this component intend to drink a potion from their backpack this ECS tick.
+/// Entities tagged with this component intend to use an item in their backpack this ECS tick.
 #[derive(Component, Debug, Clone)]
-pub struct WantsToDrinkPotion {
-    pub potion: Entity,
+pub struct WantsToUseItem {
+    pub item: Entity,
 }
 
 /// An entity's name.
