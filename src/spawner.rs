@@ -3,8 +3,9 @@ use rustc_hash::FxHashSet;
 use specs::prelude::*;
 
 use crate::{
-    AreaOfEffect, BlocksTile, CombatStats, Consumable, InflictsDamage, Item, Monster, Name, Player,
-    PlayerEntity, Position, ProvidesHealing, Ranged, Rect, Renderable, Viewshed, MAPWIDTH,
+    AreaOfEffect, BlocksTile, CombatStats, Confusion, Consumable, InflictsDamage, Item, Monster,
+    Name, Player, PlayerEntity, Position, ProvidesHealing, Ranged, Rect, Renderable, Viewshed,
+    MAPWIDTH,
 };
 
 const MAX_MONSTERS: i32 = 4;
@@ -153,13 +154,14 @@ fn spawn_monster<S: ToString>(
 fn spawn_random_item(ecs: &mut World, x: i32, y: i32) -> specs::Entity {
     let roll = {
         let mut rng = ecs.write_resource::<RandomNumberGenerator>();
-        rng.roll_dice(1, 3)
+        rng.roll_dice(1, 4)
     };
 
     match roll {
         1 => spawn_health_potion(ecs, x, y),
         2 => spawn_fireball_scroll(ecs, x, y),
-        _ => spawn_magic_missile_scroll(ecs, x, y),
+        3 => spawn_magic_missile_scroll(ecs, x, y),
+        _ => spawn_confusion_scroll(ecs, x, y),
     }
 }
 
@@ -208,6 +210,23 @@ fn spawn_magic_missile_scroll(ecs: &mut World, x: i32, y: i32) -> specs::Entity 
         .with(Renderable {
             glyph: rltk::to_cp437(')'),
             fg: RGB::named(rltk::CYAN),
+            render_order: 2,
+            ..Default::default()
+        })
+        .build()
+}
+
+fn spawn_confusion_scroll(ecs: &mut World, x: i32, y: i32) -> specs::Entity {
+    ecs.create_entity()
+        .with(Item)
+        .with(Consumable)
+        .with(Ranged { range: 6 })
+        .with(Confusion { turns: 4 })
+        .with(Name::from("Confusion Scroll"))
+        .with(Position::from((x, y)))
+        .with(Renderable {
+            glyph: rltk::to_cp437(')'),
+            fg: RGB::named(rltk::PINK),
             render_order: 2,
             ..Default::default()
         })

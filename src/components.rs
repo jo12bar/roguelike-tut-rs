@@ -15,6 +15,7 @@ pub fn register_all_components(ecs: &mut World) {
     ecs.register::<Ranged>();
     ecs.register::<InflictsDamage>();
     ecs.register::<AreaOfEffect>();
+    ecs.register::<Confusion>();
     ecs.register::<InBackpack>();
     ecs.register::<WantsToPickupItem>();
     ecs.register::<WantsToDropItem>();
@@ -104,6 +105,13 @@ pub struct InflictsDamage {
 pub struct AreaOfEffect {
     /// The radius within which this entity applies its effect
     pub radius: i32,
+}
+
+/// This entity can apply confusion, which makes other entities "Confused" for
+/// a few turns - during which time they'll do nothing.
+#[derive(Component, Debug, Default, Copy, Clone)]
+pub struct Confusion {
+    pub turns: i32,
 }
 
 /// Entities (such as items) tagged with this are in an entity's backpack.

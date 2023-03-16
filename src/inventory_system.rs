@@ -1,9 +1,9 @@
 use specs::prelude::*;
 
 use crate::{
-    AreaOfEffect, CombatStats, Consumable, GameLog, InBackpack, InflictsDamage, Map, Name,
-    PlayerEntity, Position, ProvidesHealing, SufferDamage, WantsToDropItem, WantsToPickupItem,
-    WantsToUseItem,
+    AreaOfEffect, CombatStats, Confusion, Consumable, GameLog, InBackpack, InflictsDamage, Map,
+    Name, PlayerEntity, Position, ProvidesHealing, SufferDamage, WantsToDropItem,
+    WantsToPickupItem, WantsToUseItem,
 };
 
 /// Searches for any entities that [`WantsToPickupItem`] and let's them pick
@@ -99,6 +99,7 @@ impl<'a> System<'a> for ItemUseSystem {
         ReadStorage<'a, ProvidesHealing>,
         ReadStorage<'a, InflictsDamage>,
         ReadStorage<'a, AreaOfEffect>,
+        WriteStorage<'a, Confusion>,
         ReadStorage<'a, Consumable>,
         WriteStorage<'a, CombatStats>,
         WriteStorage<'a, SufferDamage>,
@@ -116,6 +117,7 @@ impl<'a> System<'a> for ItemUseSystem {
             healing,
             damage_inflictors,
             areas_of_effect,
+            mut confused,
             consumables,
             mut combat_stats,
             mut suffer_damage,
@@ -184,6 +186,27 @@ impl<'a> System<'a> for ItemUseSystem {
                         }
                         used_item = true;
                     }
+                }
+            }
+
+            // If the item confuses entities, it's time to absolutely just outright blow their
+            // minds with the pure confusion
+            if let Some(confusion) = confused.get(use_item.item).copied() {
+                used_item = false;
+                for mob in targets.iter() {
+                    if *player_entity == entity {
+                        let mob_name = names.get(*mob).unwrap();
+                        let item_name = names.get(use_item.item).unwrap();
+                        gamelog.log(format!(
+                            "You use {item_name} on {mob_name}, confusing them."
+                        ));
+                    }
+
+                    confused
+                        .insert(*mob, confusion)
+                        .expect("Unable to insert Confusion component for entity");
+
+                    used_item = true;
                 }
             }
 
