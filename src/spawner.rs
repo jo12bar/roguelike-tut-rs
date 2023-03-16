@@ -3,8 +3,8 @@ use rustc_hash::FxHashSet;
 use specs::prelude::*;
 
 use crate::{
-    BlocksTile, CombatStats, Consumable, InflictsDamage, Item, Monster, Name, Player, PlayerEntity,
-    Position, ProvidesHealing, Ranged, Rect, Renderable, Viewshed, MAPWIDTH,
+    AreaOfEffect, BlocksTile, CombatStats, Consumable, InflictsDamage, Item, Monster, Name, Player,
+    PlayerEntity, Position, ProvidesHealing, Ranged, Rect, Renderable, Viewshed, MAPWIDTH,
 };
 
 const MAX_MONSTERS: i32 = 4;
@@ -153,11 +153,12 @@ fn spawn_monster<S: ToString>(
 fn spawn_random_item(ecs: &mut World, x: i32, y: i32) -> specs::Entity {
     let roll = {
         let mut rng = ecs.write_resource::<RandomNumberGenerator>();
-        rng.roll_dice(1, 2)
+        rng.roll_dice(1, 3)
     };
 
     match roll {
         1 => spawn_health_potion(ecs, x, y),
+        2 => spawn_fireball_scroll(ecs, x, y),
         _ => spawn_magic_missile_scroll(ecs, x, y),
     }
 }
@@ -172,6 +173,24 @@ fn spawn_health_potion(ecs: &mut World, x: i32, y: i32) -> specs::Entity {
         .with(Renderable {
             glyph: rltk::to_cp437('¡'),
             fg: RGB::named(rltk::MAGENTA),
+            render_order: 2,
+            ..Default::default()
+        })
+        .build()
+}
+
+fn spawn_fireball_scroll(ecs: &mut World, x: i32, y: i32) -> specs::Entity {
+    ecs.create_entity()
+        .with(Item)
+        .with(Consumable)
+        .with(Ranged { range: 6 })
+        .with(InflictsDamage { damage: 20 })
+        .with(AreaOfEffect { radius: 3 })
+        .with(Name::from("Fireball Scroll"))
+        .with(Position::from((x, y)))
+        .with(Renderable {
+            glyph: rltk::to_cp437(')'),
+            fg: RGB::named(rltk::ORANGE),
             render_order: 2,
             ..Default::default()
         })

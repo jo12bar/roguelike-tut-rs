@@ -14,6 +14,7 @@ pub fn register_all_components(ecs: &mut World) {
     ecs.register::<ProvidesHealing>();
     ecs.register::<Ranged>();
     ecs.register::<InflictsDamage>();
+    ecs.register::<AreaOfEffect>();
     ecs.register::<InBackpack>();
     ecs.register::<WantsToPickupItem>();
     ecs.register::<WantsToDropItem>();
@@ -96,6 +97,13 @@ pub struct Ranged {
 pub struct InflictsDamage {
     /// How much damage this entity can inflict
     pub damage: i32,
+}
+
+/// Indicates that an item has an area of effect within which it acts.
+#[derive(Component, Debug, Default)]
+pub struct AreaOfEffect {
+    /// The radius within which this entity applies its effect
+    pub radius: i32,
 }
 
 /// Entities (such as items) tagged with this are in an entity's backpack.

@@ -1,8 +1,9 @@
 use specs::prelude::*;
 
 use crate::{
-    CombatStats, Consumable, GameLog, InBackpack, InflictsDamage, Map, Name, PlayerEntity,
-    Position, ProvidesHealing, SufferDamage, WantsToDropItem, WantsToPickupItem, WantsToUseItem,
+    AreaOfEffect, CombatStats, Consumable, GameLog, InBackpack, InflictsDamage, Map, Name,
+    PlayerEntity, Position, ProvidesHealing, SufferDamage, WantsToDropItem, WantsToPickupItem,
+    WantsToUseItem,
 };
 
 /// Searches for any entities that [`WantsToPickupItem`] and let's them pick
@@ -97,6 +98,7 @@ impl<'a> System<'a> for ItemUseSystem {
         ReadStorage<'a, Name>,
         ReadStorage<'a, ProvidesHealing>,
         ReadStorage<'a, InflictsDamage>,
+        ReadStorage<'a, AreaOfEffect>,
         ReadStorage<'a, Consumable>,
         WriteStorage<'a, CombatStats>,
         WriteStorage<'a, SufferDamage>,
@@ -113,6 +115,7 @@ impl<'a> System<'a> for ItemUseSystem {
             names,
             healing,
             damage_inflictors,
+            areas_of_effect,
             consumables,
             mut combat_stats,
             mut suffer_damage,
@@ -124,12 +127,23 @@ impl<'a> System<'a> for ItemUseSystem {
             // Targeting
             let mut targets = Vec::new();
             if let Some(target) = use_item.target {
-                // TODO: add AOE calculations here.
-
-                // Assume single-tile target.
-                let idx = map.xy_idx(target.x, target.y);
-                for mob in map.tile_content[idx].iter() {
-                    targets.push(*mob);
+                if let Some(aoe) = areas_of_effect.get(use_item.item) {
+                    // Item has an area of effect. Figure out which cells to target.
+                    let blast_cells = rltk::field_of_view(target, aoe.radius, &*map);
+                    for cell in blast_cells.iter().filter(|p| {
+                        p.x > 0 && p.x < map.width - 1 && p.y > 0 && p.y < map.height - 1
+                    }) {
+                        let idx = map.xy_idx(cell.x, cell.y);
+                        for mob in map.tile_content[idx].iter() {
+                            targets.push(*mob);
+                        }
+                    }
+                } else {
+                    // Assume single-tile target.
+                    let idx = map.xy_idx(target.x, target.y);
+                    for mob in map.tile_content[idx].iter() {
+                        targets.push(*mob);
+                    }
                 }
             } else {
                 // Target the item user by default
