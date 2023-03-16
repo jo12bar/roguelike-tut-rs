@@ -2,8 +2,8 @@ use rltk::{Point, Rltk, VirtualKeyCode, RGB};
 use specs::prelude::*;
 
 use crate::{
-    CombatStats, GameLog, InBackpack, Map, Name, Player, PlayerEntity, Position, Rect, State,
-    DEBUG_MAP_VIEW, MAPHEIGHT, MAPWIDTH,
+    CombatStats, GameLog, InBackpack, Map, Name, Player, PlayerEntity, PlayerPos, Position, Rect,
+    State, Viewshed, DEBUG_MAP_VIEW, MAPHEIGHT, MAPWIDTH,
 };
 
 /// Draw the UI onto the game screen.
@@ -123,19 +123,19 @@ fn draw_tooltips(ecs: &World, ctx: &mut Rltk) {
 }
 
 /// Things that can happen when the user does something with the item menu (inventory / backpack).
-#[derive(PartialEq, Eq, Copy, Clone)]
-pub enum ItemMenuResult {
+#[derive(PartialEq, Clone)]
+pub enum ItemMenuResult<T: PartialEq + Clone> {
     Cancel,
     NoResponse,
-    Selected(Entity),
+    Selected(T),
 }
 
-pub fn show_inventory(gs: &mut State, ctx: &mut Rltk) -> ItemMenuResult {
+pub fn show_inventory(gs: &mut State, ctx: &mut Rltk) -> ItemMenuResult<Entity> {
     generic_item_selection_dialogue(gs, ctx, "Inventory", RGB::named(rltk::YELLOW))
 }
 
 /// Show a dialogue that allows the player to select an item to drop.
-pub fn drop_item_menu(gs: &mut State, ctx: &mut Rltk) -> ItemMenuResult {
+pub fn drop_item_menu(gs: &mut State, ctx: &mut Rltk) -> ItemMenuResult<Entity> {
     generic_item_selection_dialogue(gs, ctx, "Drop which item?", RGB::named(rltk::ORANGE))
 }
 
@@ -144,7 +144,7 @@ fn generic_item_selection_dialogue<S: ToString>(
     ctx: &mut Rltk,
     title: S,
     accent_color: RGB,
-) -> ItemMenuResult {
+) -> ItemMenuResult<Entity> {
     let player_entity = gs.ecs.fetch::<PlayerEntity>();
     let names = gs.ecs.read_storage::<Name>();
     let backpack = gs.ecs.read_storage::<InBackpack>();
@@ -239,4 +239,53 @@ fn generic_item_selection_dialogue<S: ToString>(
             }
         }
     }
+}
+
+pub fn ranged_target(gs: &mut State, ctx: &mut Rltk, range: i32) -> ItemMenuResult<Point> {
+    let player_entity = gs.ecs.fetch::<PlayerEntity>();
+    let player_pos = gs.ecs.fetch::<PlayerPos>();
+    let viewsheds = gs.ecs.read_storage::<Viewshed>();
+
+    ctx.print_color(
+        5,
+        0,
+        RGB::named(rltk::YELLOW),
+        RGB::named(rltk::BLACK),
+        "Select target:",
+    );
+
+    // Highlight available target cells
+    let mut available_cells = Vec::new();
+    if let Some(visible) = viewsheds.get(**player_entity) {
+        // We have a viewshed!
+        for cell in visible.visible_tiles.iter() {
+            let distance = rltk::DistanceAlg::Pythagoras.distance2d(**player_pos, *cell);
+            if distance <= range as f32 {
+                ctx.set_bg(cell.x, cell.y, RGB::named(rltk::BLUE));
+                available_cells.push(cell);
+            }
+        }
+    } else {
+        // No viewshed. Just cancel.
+        return ItemMenuResult::Cancel;
+    }
+
+    // Draw the mouse cursor.
+    let (mouse_x, mouse_y) = ctx.mouse_pos();
+    let valid_target = available_cells
+        .iter()
+        .any(|cell| cell.x == mouse_x && cell.y == mouse_y);
+    if valid_target {
+        ctx.set_bg(mouse_x, mouse_y, RGB::named(rltk::CYAN));
+        if ctx.left_click {
+            return ItemMenuResult::Selected(Point::new(mouse_x, mouse_y));
+        }
+    } else {
+        ctx.set_bg(mouse_x, mouse_y, RGB::named(rltk::RED));
+        if ctx.left_click {
+            return ItemMenuResult::Cancel;
+        }
+    }
+
+    ItemMenuResult::NoResponse
 }

@@ -42,6 +42,13 @@ pub enum RunState {
     MonsterTurn,
     ShowInventory,
     ShowDropItem,
+    /// Show the item-targeting UI
+    ShowTargeting {
+        /// The item's range
+        range: i32,
+        /// A reference to the item entity
+        item: Entity,
+    },
 }
 
 /// Global game state.
@@ -127,14 +134,25 @@ impl GameState for State {
                 gui::ItemMenuResult::Cancel => newrunstate = RunState::AwaitingInput,
                 gui::ItemMenuResult::NoResponse => {}
                 gui::ItemMenuResult::Selected(item_entity) => {
-                    let mut intent = self.ecs.write_storage::<WantsToUseItem>();
-                    intent
-                        .insert(
-                            **self.ecs.fetch::<PlayerEntity>(),
-                            WantsToUseItem { item: item_entity },
-                        )
-                        .expect("Unable to insert intent WantsToDrinkPotion for player");
-                    newrunstate = RunState::PlayerTurn;
+                    let ranged_items = self.ecs.read_storage::<Ranged>();
+                    if let Some(ranged_item) = ranged_items.get(item_entity) {
+                        newrunstate = RunState::ShowTargeting {
+                            range: ranged_item.range,
+                            item: item_entity,
+                        };
+                    } else {
+                        let mut intent = self.ecs.write_storage::<WantsToUseItem>();
+                        intent
+                            .insert(
+                                **self.ecs.fetch::<PlayerEntity>(),
+                                WantsToUseItem {
+                                    item: item_entity,
+                                    target: None,
+                                },
+                            )
+                            .expect("Unable to insert intent WantsToUseItem for player");
+                        newrunstate = RunState::PlayerTurn;
+                    }
                 }
             },
 
@@ -149,6 +167,17 @@ impl GameState for State {
                             WantsToDropItem { item: item_entity },
                         )
                         .expect("Unable to insert intent WantsToDropItem for player");
+                    newrunstate = RunState::PlayerTurn;
+                }
+            },
+
+            RunState::ShowTargeting { range, item } => match gui::ranged_target(self, ctx, range) {
+                gui::ItemMenuResult::Cancel => newrunstate = RunState::AwaitingInput,
+                gui::ItemMenuResult::NoResponse => {}
+                gui::ItemMenuResult::Selected(target) => {
+                    let mut intent = self.ecs.write_storage::<WantsToUseItem>();
+                    intent.insert(**self.ecs.fetch::<PlayerEntity>(), WantsToUseItem { item, target: Some(target) })
+                            .expect("Unable to insert intent WantsToUseItem for player after selecting target");
                     newrunstate = RunState::PlayerTurn;
                 }
             },

@@ -72,6 +72,12 @@ impl DerefMut for PlayerEntity {
     }
 }
 
+impl PartialEq<Entity> for PlayerEntity {
+    fn eq(&self, other: &Entity) -> bool {
+        &self.0 == other
+    }
+}
+
 /// Try to move the player by a certain delta vector, if the ECS contains
 /// at least one entity that has both the [`Position`] and [`Player`] components.
 ///

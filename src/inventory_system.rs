@@ -1,8 +1,8 @@
 use specs::prelude::*;
 
 use crate::{
-    CombatStats, Consumable, GameLog, InBackpack, Name, PlayerEntity, Position, ProvidesHealing,
-    WantsToDropItem, WantsToPickupItem, WantsToUseItem,
+    CombatStats, Consumable, GameLog, InBackpack, InflictsDamage, Map, Name, PlayerEntity,
+    Position, ProvidesHealing, SufferDamage, WantsToDropItem, WantsToPickupItem, WantsToUseItem,
 };
 
 /// Searches for any entities that [`WantsToPickupItem`] and let's them pick
@@ -91,12 +91,15 @@ impl<'a> System<'a> for ItemUseSystem {
     type SystemData = (
         ReadExpect<'a, PlayerEntity>,
         WriteExpect<'a, GameLog>,
+        ReadExpect<'a, Map>,
         Entities<'a>,
         WriteStorage<'a, WantsToUseItem>,
         ReadStorage<'a, Name>,
         ReadStorage<'a, ProvidesHealing>,
+        ReadStorage<'a, InflictsDamage>,
         ReadStorage<'a, Consumable>,
         WriteStorage<'a, CombatStats>,
+        WriteStorage<'a, SufferDamage>,
     );
 
     fn run(
@@ -104,31 +107,74 @@ impl<'a> System<'a> for ItemUseSystem {
         (
             player_entity,
             mut gamelog,
+            map,
             entities,
             mut wants_use_item,
             names,
             healing,
+            damage_inflictors,
             consumables,
             mut combat_stats,
+            mut suffer_damage,
         ): Self::SystemData,
     ) {
         for (entity, use_item) in (&entities, &wants_use_item).join() {
-            // If the item provides healing, heal the user
-            if let Some(healer) = healing.get(use_item.item) {
-                if let Some(stats) = combat_stats.get_mut(entity) {
-                    stats.hp = i32::min(stats.max_hp, stats.hp + healer.heal_amount);
-                    if entity == **player_entity {
+            let mut used_item = false;
+
+            // Targeting
+            let mut targets = Vec::new();
+            if let Some(target) = use_item.target {
+                // TODO: add AOE calculations here.
+
+                // Assume single-tile target.
+                let idx = map.xy_idx(target.x, target.y);
+                for mob in map.tile_content[idx].iter() {
+                    targets.push(*mob);
+                }
+            } else {
+                // Target the item user by default
+                targets.push(entity);
+            }
+
+            // If it inflicts damage, apply it to the target cell
+            if let Some(damager) = damage_inflictors.get(use_item.item) {
+                used_item = false;
+                for mob in targets.iter() {
+                    SufferDamage::new_damage(&mut suffer_damage, *mob, damager.damage);
+                    if *player_entity == entity {
+                        let mob_name = names.get(*mob).unwrap();
+                        let item_name = names.get(use_item.item).unwrap();
                         gamelog.log(format!(
-                            "You drink the {}, healing {} hp.",
-                            names.get(use_item.item).unwrap(),
-                            healer.heal_amount
+                            "You use {item_name} on {mob_name}, inflicting {} hp.",
+                            damager.damage
                         ));
+                    }
+
+                    used_item = true;
+                }
+            }
+
+            // If the item provides healing, apply the healing.
+            if let Some(healer) = healing.get(use_item.item) {
+                used_item = false;
+
+                for target in targets.iter() {
+                    if let Some(stats) = combat_stats.get_mut(*target) {
+                        stats.hp = i32::min(stats.max_hp, stats.hp + healer.heal_amount);
+                        if *player_entity == entity {
+                            gamelog.log(format!(
+                                "You drink the {}, healing {} hp.",
+                                names.get(use_item.item).unwrap(),
+                                healer.heal_amount
+                            ));
+                        }
+                        used_item = true;
                     }
                 }
             }
 
             // Delete the item if it's consumable
-            if consumables.get(use_item.item).is_some() {
+            if used_item && consumables.get(use_item.item).is_some() {
                 entities
                     .delete(use_item.item)
                     .expect("Failed to delete potion entity that just got drank");
