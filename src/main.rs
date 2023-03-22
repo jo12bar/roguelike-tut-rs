@@ -49,6 +49,10 @@ pub enum RunState {
         /// A reference to the item entity
         item: Entity,
     },
+    /// Show the main menu.
+    MainMenu {
+        menu_selection: gui::MainMenuSelection,
+    },
 }
 
 /// Global game state.
@@ -96,47 +100,70 @@ impl GameState for State {
 
         // Tick the ECS (or don't) depending on the current runstate. Make sure
         // to transition to a new runstate after doing so.
-        let mut newrunstate;
+        let mut new_runstate;
         {
             let runstate = self.ecs.fetch::<RunState>();
-            newrunstate = *runstate;
+            new_runstate = *runstate;
         }
 
-        // Render the map
-        render::draw_map(&self.ecs, ctx);
+        // Only actually draw the main view if we're not on the main menu.
+        if !matches!(new_runstate, RunState::MainMenu { .. }) {
+            // Render the map
+            render::draw_map(&self.ecs, ctx);
 
-        // Render any entity that has a position
-        render::draw_entities(&self.ecs, ctx);
+            // Render any entity that has a position
+            render::draw_entities(&self.ecs, ctx);
 
-        // Draw the GUI on top of everything
-        gui::draw_ui(&self.ecs, ctx);
+            // Draw the GUI on top of everything
+            gui::draw_ui(&self.ecs, ctx);
+        }
 
-        match newrunstate {
+        match new_runstate {
+            RunState::MainMenu { .. } => {
+                match gui::main_menu(self, ctx) {
+                    gui::MainMenuResult::NoSelection(cur_selection) => {
+                        new_runstate = RunState::MainMenu {
+                            menu_selection: cur_selection,
+                        }
+                    }
+                    gui::MainMenuResult::Selected(selected) => match selected {
+                        gui::MainMenuSelection::NewGame => new_runstate = RunState::PreRun,
+                        gui::MainMenuSelection::LoadGame => {
+                            // TODO: Load level here
+                            new_runstate = RunState::PreRun;
+                        }
+                        gui::MainMenuSelection::Quit => {
+                            std::process::exit(0);
+                        }
+                    },
+                }
+            }
+
             RunState::PreRun => {
                 self.run_systems();
-                newrunstate = RunState::AwaitingInput;
+                new_runstate = RunState::AwaitingInput;
             }
 
             RunState::AwaitingInput => {
-                newrunstate = player_input(self, ctx);
+                new_runstate = player_input(self, ctx);
             }
 
             RunState::PlayerTurn => {
                 self.run_systems();
-                newrunstate = RunState::MonsterTurn;
+                new_runstate = RunState::MonsterTurn;
             }
             RunState::MonsterTurn => {
                 self.run_systems();
-                newrunstate = RunState::AwaitingInput;
+                new_runstate = RunState::AwaitingInput;
             }
 
             RunState::ShowInventory => match gui::show_inventory(self, ctx) {
-                gui::ItemMenuResult::Cancel => newrunstate = RunState::AwaitingInput,
+                gui::ItemMenuResult::Cancel => new_runstate = RunState::AwaitingInput,
                 gui::ItemMenuResult::NoResponse => {}
                 gui::ItemMenuResult::Selected(item_entity) => {
                     let ranged_items = self.ecs.read_storage::<Ranged>();
                     if let Some(ranged_item) = ranged_items.get(item_entity) {
-                        newrunstate = RunState::ShowTargeting {
+                        new_runstate = RunState::ShowTargeting {
                             range: ranged_item.range,
                             item: item_entity,
                         };
@@ -151,13 +178,13 @@ impl GameState for State {
                                 },
                             )
                             .expect("Unable to insert intent WantsToUseItem for player");
-                        newrunstate = RunState::PlayerTurn;
+                        new_runstate = RunState::PlayerTurn;
                     }
                 }
             },
 
             RunState::ShowDropItem => match gui::drop_item_menu(self, ctx) {
-                gui::ItemMenuResult::Cancel => newrunstate = RunState::AwaitingInput,
+                gui::ItemMenuResult::Cancel => new_runstate = RunState::AwaitingInput,
                 gui::ItemMenuResult::NoResponse => {}
                 gui::ItemMenuResult::Selected(item_entity) => {
                     let mut intent = self.ecs.write_storage::<WantsToDropItem>();
@@ -167,25 +194,25 @@ impl GameState for State {
                             WantsToDropItem { item: item_entity },
                         )
                         .expect("Unable to insert intent WantsToDropItem for player");
-                    newrunstate = RunState::PlayerTurn;
+                    new_runstate = RunState::PlayerTurn;
                 }
             },
 
             RunState::ShowTargeting { range, item } => match gui::ranged_target(self, ctx, range) {
-                gui::ItemMenuResult::Cancel => newrunstate = RunState::AwaitingInput,
+                gui::ItemMenuResult::Cancel => new_runstate = RunState::AwaitingInput,
                 gui::ItemMenuResult::NoResponse => {}
                 gui::ItemMenuResult::Selected(target) => {
                     let mut intent = self.ecs.write_storage::<WantsToUseItem>();
                     intent.insert(**self.ecs.fetch::<PlayerEntity>(), WantsToUseItem { item, target: Some(target) })
                             .expect("Unable to insert intent WantsToUseItem for player after selecting target");
-                    newrunstate = RunState::PlayerTurn;
+                    new_runstate = RunState::PlayerTurn;
                 }
             },
         }
 
         {
             let mut runwriter = self.ecs.write_resource::<RunState>();
-            *runwriter = newrunstate;
+            *runwriter = new_runstate;
         }
         damage_system::delete_the_dead(&mut self.ecs);
     }
@@ -208,7 +235,7 @@ struct RunGameError {
 
 fn run_game() -> rltk::BError {
     let mut context = RltkBuilder::simple80x50()
-        .with_title("Hello RLTK World")
+        .with_title("Rust Roguelike")
         .with_fps_cap(60.0)
         .with_fitscreen(true)
         .build()?;
@@ -237,7 +264,9 @@ fn run_game() -> rltk::BError {
     gs.ecs.insert(map);
     gs.ecs.insert(PlayerPos::new(player_x, player_y));
     gs.ecs.insert(player_entity);
-    gs.ecs.insert(RunState::PreRun);
+    gs.ecs.insert(RunState::MainMenu {
+        menu_selection: gui::MainMenuSelection::NewGame,
+    });
     gs.ecs.insert(GameLog::from(
         vec!["Welcome to Rusty Roguelike".to_string()],
     ));

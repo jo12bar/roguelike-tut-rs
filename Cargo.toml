@@ -29,7 +29,9 @@ debug-map-view = []
 
 [dependencies]
 color-eyre = "0.6.2"
+num_enum = "0.5.11"
 rltk.workspace = true
 rustc-hash = "1.1.0"
 specs.workspace = true
+strum = { version = "0.24.1", features = ["derive"] }
 thiserror = "1.0.39"

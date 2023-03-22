@@ -1,9 +1,12 @@
+use std::convert::AsRef;
+
 use rltk::{Point, Rltk, VirtualKeyCode, RGB};
 use specs::prelude::*;
+use strum::{EnumCount, IntoEnumIterator};
 
 use crate::{
     CombatStats, GameLog, InBackpack, Map, Name, Player, PlayerEntity, PlayerPos, Position, Rect,
-    State, Viewshed, DEBUG_MAP_VIEW, MAPHEIGHT, MAPWIDTH,
+    RunState, State, Viewshed, DEBUG_MAP_VIEW, MAPHEIGHT, MAPWIDTH,
 };
 
 /// Draw the UI onto the game screen.
@@ -288,4 +291,114 @@ pub fn ranged_target(gs: &mut State, ctx: &mut Rltk, range: i32) -> ItemMenuResu
     }
 
     ItemMenuResult::NoResponse
+}
+
+/// Possible selection options from the main menu.
+#[derive(
+    PartialEq,
+    Copy,
+    Clone,
+    Debug,
+    strum::Display,
+    strum::EnumCount,
+    strum::AsRefStr,
+    strum::EnumIter,
+    num_enum::IntoPrimitive,
+    num_enum::TryFromPrimitive,
+)]
+#[repr(u8)]
+pub enum MainMenuSelection {
+    #[strum(to_string = "Start new game")]
+    NewGame = 0,
+    #[strum(to_string = "Load game")]
+    LoadGame,
+    #[strum(to_string = "Quit")]
+    Quit,
+}
+
+/// The result of interaction with the main menu.
+#[derive(PartialEq, Copy, Clone, Debug)]
+pub enum MainMenuResult {
+    /// Indicates the user switched between different menu items (going up/down),
+    /// has gone up a level in the menu or tried to quit (pressed <kbd>Esc</kbd>),
+    /// or has genuinely selected nothing somehow.
+    NoSelection(MainMenuSelection),
+    /// Indicates the user actually selected a menu option.
+    Selected(MainMenuSelection),
+}
+
+/// Display the main menu and handle input this tick.
+pub fn main_menu(gs: &mut State, ctx: &mut Rltk) -> MainMenuResult {
+    use MainMenuResult::*;
+    use MainMenuSelection::*;
+
+    let runstate = gs.ecs.fetch::<RunState>();
+
+    let bg_color = RGB::named(rltk::BLACK);
+    let title_color = RGB::named(rltk::YELLOW);
+    let cur_option_color = RGB::named(rltk::MAGENTA);
+    let option_color = RGB::named(rltk::WHITE);
+
+    let mut y = 15;
+
+    ctx.print_color_centered(y, title_color, bg_color, "Rust Roguelike");
+
+    if let RunState::MainMenu {
+        menu_selection: selection,
+    } = *runstate
+    {
+        // Display the menu
+        y += 9;
+        for opt in MainMenuSelection::iter() {
+            let color = if selection == opt {
+                cur_option_color
+            } else {
+                option_color
+            };
+            ctx.print_color_centered(y, color, bg_color, opt.as_ref());
+            y += 1;
+        }
+
+        // Handle user input
+        match ctx.key {
+            // If nothing was pressed, change nothing
+            None => NoSelection(selection),
+
+            Some(key) => match key {
+                // Quit on escape
+                VirtualKeyCode::Escape => NoSelection(Quit),
+
+                // Moving up
+                VirtualKeyCode::Up | VirtualKeyCode::K => {
+                    let cur_sel = selection as u8;
+                    let new_selection = if cur_sel == 0 {
+                        MainMenuSelection::COUNT as u8 - 1
+                    } else {
+                        cur_sel - 1
+                    };
+                    NoSelection(new_selection.try_into().unwrap())
+                }
+
+                // Moving down
+                VirtualKeyCode::Down | VirtualKeyCode::J => {
+                    let cur_sel = selection as u8;
+                    let new_selection = if cur_sel == MainMenuSelection::COUNT as u8 - 1 {
+                        0
+                    } else {
+                        cur_sel + 1
+                    };
+                    NoSelection(new_selection.try_into().unwrap())
+                }
+
+                // Select an option
+                VirtualKeyCode::Return => Selected(selection),
+
+                _ => NoSelection(selection),
+            },
+        }
+    } else {
+        // If this function is called while not in the MainMenu run state,
+        // just return NoSelection with a NewGame option
+        NoSelection(NewGame)
+    }
 }
