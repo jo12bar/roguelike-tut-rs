@@ -136,6 +136,11 @@ impl GameState for State {
                             .wrap_err("Failed to load game")
                             .unwrap();
                         new_runstate = RunState::AwaitingInput;
+
+                        // Ensures permadeath
+                        saveload_system::delete_save()
+                            .wrap_err("Failed to delete loaded save file")
+                            .unwrap();
                     }
                     gui::MainMenuSelection::Quit => {
                         std::process::exit(0);

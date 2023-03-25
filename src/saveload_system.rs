@@ -226,3 +226,26 @@ pub(crate) fn load_game(ecs: &mut World) -> Result<(), LoadGameError> {
 
     Ok(())
 }
+
+#[derive(Debug, thiserror::Error)]
+pub enum DeleteSaveError {
+    #[error("Could not delete saved game at `{path}`")]
+    CannotRemove {
+        source: std::io::Error,
+        path: std::path::PathBuf,
+    },
+}
+
+/// Delete `savegame.ron` in the current working directory
+pub(crate) fn delete_save() -> Result<(), DeleteSaveError> {
+    let path = Path::new("savegame.ron");
+
+    if path.exists() {
+        std::fs::remove_file(path).map_err(|e| DeleteSaveError::CannotRemove {
+            source: e,
+            path: std::path::PathBuf::from(path),
+        })?;
+    }
+
+    Ok(())
+}
