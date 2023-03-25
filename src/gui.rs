@@ -11,15 +11,14 @@ use crate::{
 
 /// Draw the UI onto the game screen.
 pub fn draw_ui(ecs: &World, ctx: &mut Rltk) {
+    let color_bg = RGB::named(rltk::BLACK);
+    let color_bg_cursor = RGB::named(rltk::MAGENTA);
+    let color_fg = RGB::named(rltk::WHITE);
+    let color_fg_accent = RGB::named(rltk::YELLOW);
+    let color_fg_health = RGB::named(rltk::RED);
+
     // Draw borders of console at bottom of screen, under the map
-    ctx.draw_box(
-        0,
-        43,
-        79,
-        6,
-        RGB::named(rltk::WHITE),
-        RGB::named(rltk::BLACK),
-    );
+    ctx.draw_box(0, 43, 79, 6, color_fg, color_bg);
 
     // Display as many log messages as we can fit
     let log = ecs.fetch::<GameLog>();
@@ -34,15 +33,13 @@ pub fn draw_ui(ecs: &World, ctx: &mut Rltk) {
     // Draw the player's health bar on the top-right border of the console
     let combat_stats = ecs.read_storage::<CombatStats>();
     let players = ecs.read_storage::<Player>();
+    let map = ecs.fetch::<Map>();
     for (_player, stats) in (&players, &combat_stats).join() {
+        let depth = format!("Depth: {}", map.depth);
+        ctx.print_color(2, 43, color_fg_accent, color_bg, &depth);
+
         let health_str = format!(" HP: {} / {} ", stats.hp, stats.max_hp);
-        ctx.print_color(
-            12,
-            43,
-            RGB::named(rltk::YELLOW),
-            RGB::named(rltk::BLACK),
-            &health_str,
-        );
+        ctx.print_color(12, 43, color_fg_accent, color_bg, &health_str);
 
         ctx.draw_bar_horizontal(
             28,
@@ -50,14 +47,14 @@ pub fn draw_ui(ecs: &World, ctx: &mut Rltk) {
             51,
             stats.hp,
             stats.max_hp,
-            RGB::named(rltk::RED),
-            RGB::named(rltk::BLACK),
+            color_fg_health,
+            color_bg,
         );
     }
 
     // Draw mouse cursor on top of EVERYTHING
     let (mouse_x, mouse_y) = ctx.mouse_pos();
-    ctx.set_bg(mouse_x, mouse_y, RGB::named(rltk::MAGENTA));
+    ctx.set_bg(mouse_x, mouse_y, color_bg_cursor);
 
     // Draw mouse tooltips on top of that
     draw_tooltips(ecs, ctx);

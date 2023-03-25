@@ -5,6 +5,7 @@ use std::{
 
 use bitvec::bitvec;
 use bitvec::vec::BitVec;
+use derivative::Derivative;
 use rltk::{Algorithm2D, BaseMap, Point, RandomNumberGenerator};
 use specs::Entity;
 
@@ -22,11 +23,13 @@ pub const MAPSIZE: usize = MAPWIDTH * MAPHEIGHT;
 pub enum TileType {
     Wall,
     Floor,
+    DownStairs,
 }
 
 /// A level map. This includes all the tiles, rooms, and so on that constitute
 /// the level's layout.
-#[derive(Default, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, serde::Serialize, serde::Deserialize, Derivative)]
+#[derivative(Default)]
 pub struct Map {
     /// An array of all map tiles.
     ///
@@ -40,6 +43,10 @@ pub struct Map {
     pub width: i32,
     /// The map's height.
     pub height: i32,
+
+    /// How deep into the dungeon the player has gone so far.
+    #[derivative(Default(value = "1"))]
+    pub depth: i32,
 
     /// All tiles that the player has revealed during their explorations.
     ///
@@ -128,12 +135,13 @@ impl Map {
     ///
     /// The map will have a width of 80 and a height of 50.
     /// This uses the algorithm from http://rogueliketutorials.com/tutorials/tcod/part-3/.
-    pub fn new_map_rooms_and_corridors(rng: &mut RandomNumberGenerator) -> Self {
+    pub fn new_map_rooms_and_corridors(rng: &mut RandomNumberGenerator, new_depth: i32) -> Self {
         let mut map = Self {
             tiles: vec![TileType::Wall; MAPSIZE],
             rooms: Vec::new(),
             width: MAPWIDTH as i32,
             height: MAPHEIGHT as i32,
+            depth: new_depth,
             revealed_tiles: bitvec![0; MAPSIZE],
             visible_tiles: bitvec![0; MAPSIZE],
             blocked: bitvec![0; MAPSIZE],
@@ -173,6 +181,11 @@ impl Map {
                 map.rooms.push(new_room);
             }
         }
+
+        // Add down stairs in the last room generated
+        let (stairs_x, stairs_y) = map.rooms[map.rooms.len() - 1].center();
+        let stairs_idx = map.xy_idx(stairs_x, stairs_y);
+        map.tiles[stairs_idx] = TileType::DownStairs;
 
         map
     }

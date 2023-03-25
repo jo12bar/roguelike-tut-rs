@@ -27,6 +27,7 @@ pub use self::rect::Rect;
 pub use self::visibility_system::VisibilitySystem;
 
 use color_eyre::eyre::Context;
+use rltk::RandomNumberGenerator;
 use rltk::{GameState, Rltk, RltkBuilder};
 use specs::prelude::*;
 use specs::saveload::SimpleMarkerAllocator;
@@ -57,6 +58,7 @@ pub enum RunState {
         menu_selection: gui::MainMenuSelection,
     },
     SaveGame,
+    NextLevel,
 }
 
 /// Global game state.
@@ -95,6 +97,90 @@ impl State {
         use_potions.run_now(&self.ecs);
 
         self.ecs.maintain();
+    }
+
+    /// Returns a vector of all entities to remove when the current level is changed.
+    fn entities_to_remove_on_level_change(&self) -> Vec<Entity> {
+        let entities = self.ecs.entities();
+        let players = self.ecs.read_storage::<Player>();
+        let backpack_items = self.ecs.read_storage::<InBackpack>();
+        let player_entity = self.ecs.fetch::<PlayerEntity>();
+
+        entities
+            .join()
+            .filter(|entity| {
+                let mut should_delete = true;
+
+                // Don't delete the player
+                if players.get(*entity).is_some() {
+                    should_delete = false;
+                }
+
+                // Don't delete the player's equipment
+                if let Some(bp_item) = backpack_items.get(*entity) {
+                    if *player_entity == bp_item.owner {
+                        should_delete = false
+                    }
+                }
+
+                should_delete
+            })
+            .collect()
+    }
+
+    /// Go to the next level.
+    fn goto_next_level(&mut self) {
+        // Delete entities that aren't the player or their equipment
+        for ent in self.entities_to_remove_on_level_change() {
+            self.ecs.delete_entity(ent)
+                .expect("Unable to delete entity owned by the ECS for some reason (this should never happen)");
+        }
+
+        // Build a new map and place the player
+        let level_map = {
+            let mut level_map_resource = self.ecs.fetch_mut::<Map>();
+            let mut rng = self.ecs.fetch_mut::<RandomNumberGenerator>();
+            let current_depth = level_map_resource.depth;
+            *level_map_resource = Map::new_map_rooms_and_corridors(&mut rng, current_depth + 1);
+            level_map_resource.clone()
+        };
+
+        // Spawn bad guys
+        for room in level_map.rooms.iter().skip(1) {
+            spawner::spawn_room(&mut self.ecs, room);
+        }
+
+        // Place the player and update resources
+        let (player_x, player_y) = level_map.rooms[0].center();
+        let mut player_pos = self.ecs.fetch_mut::<PlayerPos>();
+        player_pos.x = player_x;
+        player_pos.y = player_y;
+
+        let mut positions = self.ecs.write_component::<Position>();
+        let player_entity = self.ecs.fetch::<PlayerEntity>();
+        if let Some(player_pos_component) = positions.get_mut(**player_entity) {
+            player_pos_component.x = player_x;
+            player_pos_component.y = player_y;
+        }
+
+        // Mark the player's visibility as dirty
+        let mut viewsheds = self.ecs.write_component::<Viewshed>();
+        if let Some(player_viewshed) = viewsheds.get_mut(**player_entity) {
+            player_viewshed.dirty = true;
+        }
+
+        // Notify the player and give them back some health
+        let mut gamelog = self.ecs.fetch_mut::<GameLog>();
+
+        let mut all_combat_stats = self.ecs.write_component::<CombatStats>();
+        if let Some(player_combat_stats) = all_combat_stats.get_mut(**player_entity) {
+            if player_combat_stats.hp >= player_combat_stats.max_hp / 2 {
+                gamelog.log("You descend to the next level.");
+            } else {
+                gamelog.log("You descend to the next level, and take a moment to heal.");
+                player_combat_stats.hp = player_combat_stats.max_hp / 2;
+            }
+        }
     }
 }
 
@@ -156,6 +242,11 @@ impl GameState for State {
                 new_runstate = RunState::MainMenu {
                     menu_selection: gui::MainMenuSelection::LoadGame,
                 };
+            }
+
+            RunState::NextLevel => {
+                self.goto_next_level();
+                new_runstate = RunState::PreRun;
             }
 
             RunState::PreRun => {
@@ -267,7 +358,7 @@ fn run_game() -> rltk::BError {
 
     let mut rng = rltk::RandomNumberGenerator::new();
 
-    let map = Map::new_map_rooms_and_corridors(&mut rng);
+    let map = Map::new_map_rooms_and_corridors(&mut rng, 1);
     let (player_x, player_y) = map.rooms[0].center();
 
     gs.ecs.insert(rng);

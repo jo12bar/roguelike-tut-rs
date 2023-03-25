@@ -25,6 +25,10 @@ pub fn draw_map(ecs: &World, ctx: &mut Rltk) {
                     glyph = rltk::to_cp437('#');
                     fg = RGB::from_f32(0.0, 1.0, 0.0);
                 }
+                TileType::DownStairs => {
+                    glyph = rltk::to_cp437('>');
+                    fg = RGB::from_f32(0.0, 1.0, 1.0);
+                }
             }
 
             // If the tile isn't _currently_ visible to the player, grey it out

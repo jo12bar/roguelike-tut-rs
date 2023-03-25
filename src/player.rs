@@ -7,8 +7,8 @@ use rltk::{Rltk, VirtualKeyCode};
 use specs::prelude::*;
 
 use crate::{
-    CombatStats, GameLog, Item, Map, Player, Position, RunState, State, Viewshed, WantsToMelee,
-    WantsToPickupItem,
+    CombatStats, GameLog, Item, Map, Player, Position, RunState, State, TileType, Viewshed,
+    WantsToMelee, WantsToPickupItem,
 };
 
 /// The player's position. Just a newtype wrapper over a [`rltk::Point`].
@@ -152,27 +152,28 @@ pub fn player_input(gs: &mut State, ctx: &mut Rltk) -> RunState {
             VirtualKeyCode::Left | VirtualKeyCode::H | VirtualKeyCode::Numpad4 => {
                 try_move_player(-1, 0, &mut gs.ecs)
             }
-
             VirtualKeyCode::Right | VirtualKeyCode::L | VirtualKeyCode::Numpad6 => {
                 try_move_player(1, 0, &mut gs.ecs)
             }
-
             VirtualKeyCode::Up | VirtualKeyCode::K | VirtualKeyCode::Numpad8 => {
                 try_move_player(0, -1, &mut gs.ecs)
             }
-
             VirtualKeyCode::Down | VirtualKeyCode::J | VirtualKeyCode::Numpad2 => {
                 try_move_player(0, 1, &mut gs.ecs)
             }
 
             // Movement in diagonal directions
             VirtualKeyCode::Numpad9 | VirtualKeyCode::I => try_move_player(1, -1, &mut gs.ecs),
-
             VirtualKeyCode::Numpad7 | VirtualKeyCode::U => try_move_player(-1, -1, &mut gs.ecs),
-
             VirtualKeyCode::Numpad3 | VirtualKeyCode::M => try_move_player(1, 1, &mut gs.ecs),
-
             VirtualKeyCode::Numpad1 | VirtualKeyCode::N => try_move_player(-1, 1, &mut gs.ecs),
+
+            // Go down a level if on DownStairs
+            VirtualKeyCode::Period => {
+                if try_next_level(&mut gs.ecs) {
+                    return RunState::NextLevel;
+                }
+            }
 
             // Item manipulation
             VirtualKeyCode::G => get_item(&mut gs.ecs),
@@ -222,5 +223,20 @@ fn get_item(ecs: &mut World) {
                 )
                 .expect("Unable to insert `WantsToPickupItem` intent for player entity");
         }
+    }
+}
+
+/// Check if the player can descend a level. Returns true if successful.
+fn try_next_level(ecs: &mut World) -> bool {
+    let player_pos = ecs.fetch::<PlayerPos>();
+    let map = ecs.fetch::<Map>();
+    let player_idx = map.xy_idx(player_pos.x, player_pos.y);
+
+    if map.tiles[player_idx] == TileType::DownStairs {
+        true
+    } else {
+        let mut gamelog = ecs.fetch_mut::<GameLog>();
+        gamelog.log("You try digging down a level, but your arms are too weak!");
+        false
     }
 }

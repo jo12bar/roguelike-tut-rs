@@ -30,6 +30,7 @@ debug-map-view = []
 [dependencies]
 bitvec = { version = "1.0.1", features = ["serde"] }
 color-eyre = "0.6.2"
+derivative = "2.2.0"
 num_enum = "0.5.11"
 rltk.workspace = true
 ron = "0.8.0"
