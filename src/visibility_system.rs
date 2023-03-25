@@ -30,7 +30,7 @@ impl<'a> System<'a> for VisibilitySystem {
                 if let Some(_p) = player.get(ent) {
                     // Grey out all tiles that were visible to the player the last time the
                     // viewshed was updated.
-                    for t in map.visible_tiles.iter_mut() {
+                    for mut t in map.visible_tiles.iter_mut() {
                         *t = false;
                     }
 
@@ -38,8 +38,8 @@ impl<'a> System<'a> for VisibilitySystem {
                     // previously-revelaed tiles.
                     for vis in viewshed.visible_tiles.iter() {
                         let idx = map.xy_idx(vis.x, vis.y);
-                        map.revealed_tiles[idx] = true;
-                        map.visible_tiles[idx] = true;
+                        map.revealed_tiles.set(idx, true);
+                        map.visible_tiles.set(idx, true);
                     }
                 }
             }

@@ -1,4 +1,7 @@
+use std::fmt;
+
 /// A rectangle, defined by it's upper-left and upper-right corners
+#[derive(PartialEq, Copy, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Rect {
     pub x1: i32,
     pub y1: i32,
@@ -60,5 +63,15 @@ impl Rect {
 impl From<((i32, i32), (i32, i32))> for Rect {
     fn from(((x1, y1), (x2, y2)): ((i32, i32), (i32, i32))) -> Self {
         Self { x1, y1, x2, y2 }
+    }
+}
+
+impl fmt::Debug for Rect {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Rect[[ ({}, {}) -> ({}, {}) ]]",
+            self.x1, self.y1, self.x2, self.y2
+        )
     }
 }

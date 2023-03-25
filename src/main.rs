@@ -10,6 +10,7 @@ mod monster_ai_system;
 mod player;
 mod rect;
 mod render;
+mod saveload_system;
 mod spawner;
 mod visibility_system;
 
@@ -25,8 +26,10 @@ pub use self::player::*;
 pub use self::rect::Rect;
 pub use self::visibility_system::VisibilitySystem;
 
+use color_eyre::eyre::Context;
 use rltk::{GameState, Rltk, RltkBuilder};
 use specs::prelude::*;
+use specs::saveload::SimpleMarkerAllocator;
 
 /// Set this to `true` to show the entire map and all entities in it,
 /// regardless of what's actually visible. Tooltips and such should work
@@ -53,6 +56,7 @@ pub enum RunState {
     MainMenu {
         menu_selection: gui::MainMenuSelection,
     },
+    SaveGame,
 }
 
 /// Global game state.
@@ -119,24 +123,34 @@ impl GameState for State {
         }
 
         match new_runstate {
-            RunState::MainMenu { .. } => {
-                match gui::main_menu(self, ctx) {
-                    gui::MainMenuResult::NoSelection(cur_selection) => {
-                        new_runstate = RunState::MainMenu {
-                            menu_selection: cur_selection,
-                        }
+            RunState::MainMenu { .. } => match gui::main_menu(self, ctx) {
+                gui::MainMenuResult::NoSelection(cur_selection) => {
+                    new_runstate = RunState::MainMenu {
+                        menu_selection: cur_selection,
                     }
-                    gui::MainMenuResult::Selected(selected) => match selected {
-                        gui::MainMenuSelection::NewGame => new_runstate = RunState::PreRun,
-                        gui::MainMenuSelection::LoadGame => {
-                            // TODO: Load level here
-                            new_runstate = RunState::PreRun;
-                        }
-                        gui::MainMenuSelection::Quit => {
-                            std::process::exit(0);
-                        }
-                    },
                 }
+                gui::MainMenuResult::Selected(selected) => match selected {
+                    gui::MainMenuSelection::NewGame => new_runstate = RunState::PreRun,
+                    gui::MainMenuSelection::LoadGame => {
+                        saveload_system::load_game(&mut self.ecs)
+                            .wrap_err("Failed to load game")
+                            .unwrap();
+                        new_runstate = RunState::AwaitingInput;
+                    }
+                    gui::MainMenuSelection::Quit => {
+                        std::process::exit(0);
+                    }
+                },
+            },
+
+            RunState::SaveGame => {
+                saveload_system::save_game(&mut self.ecs)
+                    .wrap_err("Failed to save game")
+                    .unwrap();
+
+                new_runstate = RunState::MainMenu {
+                    menu_selection: gui::MainMenuSelection::LoadGame,
+                };
             }
 
             RunState::PreRun => {
@@ -252,6 +266,7 @@ fn run_game() -> rltk::BError {
     let (player_x, player_y) = map.rooms[0].center();
 
     gs.ecs.insert(rng);
+    gs.ecs.insert(SimpleMarkerAllocator::<Serializable>::new());
 
     // Create the player
     let player_entity = spawner::player(&mut gs.ecs, player_x, player_y);

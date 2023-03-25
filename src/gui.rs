@@ -332,6 +332,7 @@ pub fn main_menu(gs: &mut State, ctx: &mut Rltk) -> MainMenuResult {
     use MainMenuResult::*;
     use MainMenuSelection::*;
 
+    let save_exists = crate::saveload_system::does_save_exist();
     let runstate = gs.ecs.fetch::<RunState>();
 
     let bg_color = RGB::named(rltk::BLACK);
@@ -350,6 +351,11 @@ pub fn main_menu(gs: &mut State, ctx: &mut Rltk) -> MainMenuResult {
         // Display the menu
         y += 9;
         for opt in MainMenuSelection::iter() {
+            // Only offer to load the game if a save exists!
+            if opt == LoadGame && !save_exists {
+                continue;
+            }
+
             let color = if selection == opt {
                 cur_option_color
             } else {
@@ -371,22 +377,41 @@ pub fn main_menu(gs: &mut State, ctx: &mut Rltk) -> MainMenuResult {
                 // Moving up
                 VirtualKeyCode::Up | VirtualKeyCode::K => {
                     let cur_sel = selection as u8;
-                    let new_selection = if cur_sel == 0 {
+                    let mut new_selection = if cur_sel == 0 {
                         MainMenuSelection::COUNT as u8 - 1
                     } else {
                         cur_sel - 1
                     };
+                    // Only select Load Game if a save exists
+                    if new_selection == LoadGame as _ && !save_exists {
+                        new_selection = if new_selection == 0 {
+                            let n = MainMenuSelection::COUNT as u8 - 1;
+                            if n == LoadGame as _ {
+                                n.saturating_sub(1)
+                            } else {
+                                n
+                            }
+                        } else {
+                            new_selection - 1
+                        };
+                    }
                     NoSelection(new_selection.try_into().unwrap())
                 }
 
                 // Moving down
                 VirtualKeyCode::Down | VirtualKeyCode::J => {
                     let cur_sel = selection as u8;
-                    let new_selection = if cur_sel == MainMenuSelection::COUNT as u8 - 1 {
-                        0
-                    } else {
-                        cur_sel + 1
-                    };
+                    let mut new_selection = cur_sel + 1;
+                    if new_selection == MainMenuSelection::COUNT as _ {
+                        new_selection = 0;
+                    }
+                    // Only select Load Game if a save exists
+                    if new_selection == LoadGame as _ && !save_exists {
+                        new_selection += 1;
+                        if new_selection == MainMenuSelection::COUNT as _ {
+                            new_selection = if 0 == LoadGame as _ { 1 } else { 0 };
+                        }
+                    }
                     NoSelection(new_selection.try_into().unwrap())
                 }
 

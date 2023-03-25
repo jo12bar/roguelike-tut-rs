@@ -1,1 +1,4 @@
 /target
+
+# Game saves
+*.ron

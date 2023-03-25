@@ -1,11 +1,12 @@
 use rltk::{RandomNumberGenerator, RGB};
 use rustc_hash::FxHashSet;
 use specs::prelude::*;
+use specs::saveload::{MarkedBuilder, SimpleMarker};
 
 use crate::{
     AreaOfEffect, BlocksTile, CombatStats, Confusion, Consumable, InflictsDamage, Item, Monster,
-    Name, Player, PlayerEntity, Position, ProvidesHealing, Ranged, Rect, Renderable, Viewshed,
-    MAPWIDTH,
+    Name, Player, PlayerEntity, Position, ProvidesHealing, Ranged, Rect, Renderable, Serializable,
+    Viewshed, MAPWIDTH,
 };
 
 const MAX_MONSTERS: i32 = 4;
@@ -34,6 +35,7 @@ pub fn player(ecs: &mut World, player_x: i32, player_y: i32) -> PlayerEntity {
             range: 8,
             ..Default::default()
         })
+        .marked::<SimpleMarker<Serializable>>()
         .build();
     PlayerEntity(ent)
 }
@@ -148,6 +150,7 @@ fn spawn_monster<S: ToString>(
             range: 8,
             ..Default::default()
         })
+        .marked::<SimpleMarker<Serializable>>()
         .build()
 }
 
@@ -178,6 +181,7 @@ fn spawn_health_potion(ecs: &mut World, x: i32, y: i32) -> specs::Entity {
             render_order: 2,
             ..Default::default()
         })
+        .marked::<SimpleMarker<Serializable>>()
         .build()
 }
 
@@ -196,6 +200,7 @@ fn spawn_fireball_scroll(ecs: &mut World, x: i32, y: i32) -> specs::Entity {
             render_order: 2,
             ..Default::default()
         })
+        .marked::<SimpleMarker<Serializable>>()
         .build()
 }
 
@@ -213,6 +218,7 @@ fn spawn_magic_missile_scroll(ecs: &mut World, x: i32, y: i32) -> specs::Entity 
             render_order: 2,
             ..Default::default()
         })
+        .marked::<SimpleMarker<Serializable>>()
         .build()
 }
 
@@ -230,5 +236,6 @@ fn spawn_confusion_scroll(ecs: &mut World, x: i32, y: i32) -> specs::Entity {
             render_order: 2,
             ..Default::default()
         })
+        .marked::<SimpleMarker<Serializable>>()
         .build()
 }

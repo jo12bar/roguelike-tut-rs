@@ -29,7 +29,7 @@ impl<'a> System<'a> for MapIndexingSystem {
             // If they block this tile from other entities, add to the blocking list.
             let _p: Option<&BlocksTile> = blockers.get(entity);
             if let Some(_p) = _p {
-                map.blocked[idx] = true;
+                map.blocked.set(idx, true);
             }
 
             // Push the entity to the appropriate tile content index slot.

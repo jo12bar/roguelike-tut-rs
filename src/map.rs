@@ -1,5 +1,10 @@
-use std::cmp::{max, min};
+use std::{
+    cmp::{max, min},
+    fmt,
+};
 
+use bitvec::bitvec;
+use bitvec::vec::BitVec;
 use rltk::{Algorithm2D, BaseMap, Point, RandomNumberGenerator};
 use specs::Entity;
 
@@ -13,7 +18,7 @@ pub const MAPHEIGHT: usize = 43;
 pub const MAPSIZE: usize = MAPWIDTH * MAPHEIGHT;
 
 /// All possible tile types.
-#[derive(PartialEq, Eq, Copy, Clone)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum TileType {
     Wall,
     Floor,
@@ -21,6 +26,7 @@ pub enum TileType {
 
 /// A level map. This includes all the tiles, rooms, and so on that constitute
 /// the level's layout.
+#[derive(Default, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Map {
     /// An array of all map tiles.
     ///
@@ -39,7 +45,7 @@ pub struct Map {
     ///
     /// An element in this vector will be `true` if the player has revealed the
     /// corresponding tile in [`Self::tiles`].
-    pub revealed_tiles: Vec<bool>,
+    pub revealed_tiles: BitVec,
 
     /// All tiles that are _currently_ visible to the player.
     ///
@@ -48,16 +54,21 @@ pub struct Map {
     ///
     /// An element in this vector will be `true` if the player can currently see the
     /// corresponding tile in [`Self::tiles`].
-    pub visible_tiles: Vec<bool>,
+    pub visible_tiles: BitVec,
 
     /// All tiles that are blocked from access. This includes things like walls,
     /// monsters, etc. that can't be moved onto by other entities.
     ///
     /// An element in this vector will be `true` if the corresponding tile in
     /// [`Self::tiles`] is blocked from access.
-    pub blocked: Vec<bool>,
+    pub blocked: BitVec,
 
     /// A record of which entities are present in each tile of the map.
+    ///
+    /// Note that this is ignored for the purposes of serialization and deserialization.
+    /// This is fine, since this data is expected to be rebuilt every tick.
+    #[serde(skip_serializing)]
+    #[serde(skip_deserializing)]
     pub tile_content: Vec<Vec<Entity>>,
 }
 
@@ -102,7 +113,7 @@ impl Map {
     /// Populate [`Self::blocked`] with all statically-blocked tiles.
     pub fn populate_blocked(&mut self) {
         for (i, tile) in self.tiles.iter_mut().enumerate() {
-            self.blocked[i] = *tile == TileType::Wall;
+            self.blocked.set(i, *tile == TileType::Wall);
         }
     }
 
@@ -123,9 +134,9 @@ impl Map {
             rooms: Vec::new(),
             width: MAPWIDTH as i32,
             height: MAPHEIGHT as i32,
-            revealed_tiles: vec![false; MAPSIZE],
-            visible_tiles: vec![false; MAPSIZE],
-            blocked: vec![false; MAPSIZE],
+            revealed_tiles: bitvec![0; MAPSIZE],
+            visible_tiles: bitvec![0; MAPSIZE],
+            blocked: bitvec![0; MAPSIZE],
             tile_content: vec![Vec::new(); MAPSIZE],
         };
 
@@ -236,5 +247,29 @@ impl BaseMap for Map {
         let p2 = Point::new(idx2 % w, idx2 / w);
 
         rltk::DistanceAlg::Pythagoras.distance2d(p1, p2)
+    }
+}
+
+impl fmt::Debug for Map {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Map")
+            .field("tiles", &format!("[TileType; {}]", self.tiles.len()))
+            .field("rooms", &self.rooms)
+            .field("width", &self.width)
+            .field("height", &self.height)
+            .field(
+                "revealed_tiles",
+                &format!("[bool; {}]", self.revealed_tiles.len()),
+            )
+            .field(
+                "visible_tiles",
+                &format!("[bool; {}]", self.visible_tiles.len()),
+            )
+            .field("blocked", &format!("[bool; {}]", self.blocked.len()))
+            .field(
+                "tile_content",
+                &format!("[Vec<Entity>; {}]", self.tile_content.len()),
+            )
+            .finish()
     }
 }

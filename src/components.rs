@@ -1,10 +1,18 @@
 use std::fmt;
 
 use rltk::RGB;
+use serde::{Deserialize, Serialize};
 use specs::prelude::*;
-use specs::{Component, Entity};
+use specs::saveload::{ConvertSaveload, Marker, SimpleMarker};
+use specs::{Component, ConvertSaveload, Entity};
+
+// Required for specs::ConvertSaveload derive proc_macro
+#[allow(deprecated)]
+use specs::error::NoError;
 
 pub fn register_all_components(ecs: &mut World) {
+    ecs.register::<SimpleMarker<Serializable>>();
+    ecs.register::<SerializationHelper>();
     ecs.register::<Position>();
     ecs.register::<Renderable>();
     ecs.register::<Player>();
@@ -28,8 +36,25 @@ pub fn register_all_components(ecs: &mut World) {
     ecs.register::<SufferDamage>();
 }
 
+/// Indicates that an entity should be serialized when the game is saved.
+///
+/// # Note
+/// This marker struct is _not_ actually a [`Component`]. It's not even registered
+/// in the ECS. Instead, [`SimpleMarker<Serializable>`][`specs::saveload::SimpleMarker`]
+/// is registered.
+pub struct Serializable;
+
+/// A wrapper for serializing & saving things that aren't normally stored
+/// as entities in the ECS.
+///
+/// Used by [`crate::saveload_system::save_game()`].
+#[derive(Component, ConvertSaveload, Default, Debug, Clone)]
+pub struct SerializationHelper {
+    pub map: crate::Map,
+}
+
 /// Tracks the location of an entity.
-#[derive(Component, Default, Debug, Copy, Clone)]
+#[derive(Component, ConvertSaveload, Default, Debug, Copy, Clone)]
 pub struct Position {
     pub x: i32,
     pub y: i32,
@@ -42,7 +67,7 @@ impl From<(i32, i32)> for Position {
 }
 
 /// Provides a CP437 character and fg/bg colors to render an entity with.
-#[derive(Component, Debug)]
+#[derive(Component, Debug, ConvertSaveload, Clone)]
 pub struct Renderable {
     pub glyph: rltk::FontCharType,
     pub fg: RGB,
@@ -64,44 +89,44 @@ impl Default for Renderable {
 }
 
 /// Indicates that an entity is the Player character.
-#[derive(Component, Debug, Default)]
+#[derive(Component, Debug, Default, Serialize, Deserialize, Clone, Copy)]
 pub struct Player;
 
 /// Indicates that an entity is a Monster.
-#[derive(Component, Debug, Default)]
+#[derive(Component, Debug, Default, Serialize, Deserialize, Clone, Copy)]
 pub struct Monster;
 
 /// An item that can be picked up and used.
-#[derive(Component, Debug, Default)]
+#[derive(Component, Debug, Default, Serialize, Deserialize, Clone, Copy)]
 pub struct Item;
 
 /// Indicates that an item is consumable (i.e. can be used up).
-#[derive(Component, Debug, Default)]
+#[derive(Component, Debug, Default, Serialize, Deserialize, Clone, Copy)]
 pub struct Consumable;
 
 /// Indicates that an item heals the user.
-#[derive(Component, Debug, Default)]
+#[derive(Component, Debug, Default, ConvertSaveload, Clone)]
 pub struct ProvidesHealing {
     pub heal_amount: i32,
 }
 
 /// Indicates that an item is "Ranged". This typically means that it can be shot,
 /// thrown, and so on.
-#[derive(Component, Debug, Default)]
+#[derive(Component, Debug, Default, ConvertSaveload, Clone)]
 pub struct Ranged {
     /// How far the entity can be thrown
     pub range: i32,
 }
 
 /// Indicates that an item can inflict damage upon another entity.
-#[derive(Component, Debug, Default)]
+#[derive(Component, Debug, Default, ConvertSaveload, Clone)]
 pub struct InflictsDamage {
     /// How much damage this entity can inflict
     pub damage: i32,
 }
 
 /// Indicates that an item has an area of effect within which it acts.
-#[derive(Component, Debug, Default)]
+#[derive(Component, Debug, Default, ConvertSaveload, Clone)]
 pub struct AreaOfEffect {
     /// The radius within which this entity applies its effect
     pub radius: i32,
@@ -109,40 +134,40 @@ pub struct AreaOfEffect {
 
 /// This entity can apply confusion, which makes other entities "Confused" for
 /// a few turns - during which time they'll do nothing.
-#[derive(Component, Debug, Default, Copy, Clone)]
+#[derive(Component, Debug, Default, Copy, Clone, ConvertSaveload)]
 pub struct Confusion {
     pub turns: i32,
 }
 
 /// Entities (such as items) tagged with this are in an entity's backpack.
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Debug, Clone, ConvertSaveload)]
 pub struct InBackpack {
     pub owner: Entity,
 }
 
 /// Entities tagged with this component are attempting to pick up an [`Item`]
 /// and put it into their own backpack this ECS tick.
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Debug, Clone, ConvertSaveload)]
 pub struct WantsToPickupItem {
     pub collected_by: Entity,
     pub item: Entity,
 }
 
 /// Entities tagged with this component intend to drop an item from their backpack.
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Debug, Clone, ConvertSaveload)]
 pub struct WantsToDropItem {
     pub item: Entity,
 }
 
 /// Entities tagged with this component intend to use an item in their backpack this ECS tick.
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Debug, Clone, ConvertSaveload)]
 pub struct WantsToUseItem {
     pub item: Entity,
     pub target: Option<rltk::Point>,
 }
 
 /// An entity's name.
-#[derive(Component, Debug, Default)]
+#[derive(Component, Debug, Default, ConvertSaveload, Clone)]
 pub struct Name {
     pub name: String,
 }
@@ -169,7 +194,7 @@ impl<'a> From<&'a str> for Name {
 
 /// Describes which tiles are visible to an entity, and what the entity's
 /// view range is.
-#[derive(Component, Debug)]
+#[derive(Component, Debug, ConvertSaveload, Clone)]
 pub struct Viewshed {
     pub visible_tiles: Vec<rltk::Point>,
     pub range: i32,
@@ -189,11 +214,11 @@ impl Default for Viewshed {
 
 /// Indicates that an entity blocks the tile it is currently on from access by
 /// other entities.
-#[derive(Component, Debug, Default)]
+#[derive(Component, Debug, Default, Serialize, Deserialize, Clone, Copy)]
 pub struct BlocksTile;
 
 /// Statistics influencing an entity's health, attack power, defense, etc.
-#[derive(Component, Debug, Default)]
+#[derive(Component, Debug, Default, ConvertSaveload, Clone)]
 pub struct CombatStats {
     pub max_hp: i32,
     pub hp: i32,
@@ -202,13 +227,13 @@ pub struct CombatStats {
 }
 
 /// Indicates that an entity wants to attack another entity this ECS tick (via melee).
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Debug, ConvertSaveload, Clone)]
 pub struct WantsToMelee {
     pub target: Entity,
 }
 
 /// The cumulative sum of damage that will be inflicted on an entity this ECS tick.
-#[derive(Component, Debug, Default, Clone)]
+#[derive(Component, Debug, Default, Clone, ConvertSaveload)]
 pub struct SufferDamage {
     pub amount: Vec<i32>,
 }
