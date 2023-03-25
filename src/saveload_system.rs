@@ -48,7 +48,18 @@ macro_rules! serialize_individually {
     };
 }
 
+/// On `wasm32`, saving isn't implemented yet. So this function is a no-op.
+#[cfg(target_arch = "wasm32")]
+#[inline]
+pub(crate) fn save_game(_ecs: &mut specs::World) -> Result<(), SaveGameError> {
+    // no-op
+    Ok(())
+}
+
 /// Save the game to `$PWD/savegame.ron`.
+///
+/// Does nothing on `wasm32`.
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn save_game(ecs: &mut specs::World) -> Result<(), SaveGameError> {
     // Temporarily add a copy of the Map to the ECS world so that it gets serialized with
     // everything else.
