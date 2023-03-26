@@ -372,7 +372,7 @@ pub fn main_menu(gs: &mut State, ctx: &mut Rltk) -> MainMenuResult {
                 VirtualKeyCode::Escape => NoSelection(Quit),
 
                 // Moving up
-                VirtualKeyCode::Up | VirtualKeyCode::K => {
+                VirtualKeyCode::Up | VirtualKeyCode::K | VirtualKeyCode::Numpad8 => {
                     let cur_sel = selection as u8;
                     let mut new_selection = if cur_sel == 0 {
                         MainMenuSelection::COUNT as u8 - 1
@@ -396,7 +396,7 @@ pub fn main_menu(gs: &mut State, ctx: &mut Rltk) -> MainMenuResult {
                 }
 
                 // Moving down
-                VirtualKeyCode::Down | VirtualKeyCode::J => {
+                VirtualKeyCode::Down | VirtualKeyCode::J | VirtualKeyCode::Numpad2 => {
                     let cur_sel = selection as u8;
                     let mut new_selection = cur_sel + 1;
                     if new_selection == MainMenuSelection::COUNT as _ {
