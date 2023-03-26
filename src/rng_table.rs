@@ -59,7 +59,6 @@ impl RngTable {
         let mut index = 0;
 
         while roll > 0 {
-            println!("i: {index}, roll: {roll}");
             if roll < self.entries[index].weight {
                 return Some(&self.entries[index].name);
             }

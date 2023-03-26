@@ -148,7 +148,7 @@ impl State {
 
         // Spawn bad guys
         for room in level_map.rooms.iter().skip(1) {
-            spawner::spawn_room(&mut self.ecs, room);
+            spawner::spawn_room(&mut self.ecs, room, level_map.depth);
         }
 
         // Place the player and update resources
@@ -370,7 +370,7 @@ fn run_game() -> rltk::BError {
 
     // Add monsters and items to each room (except the starting room)
     for room in map.rooms.iter().skip(1) {
-        spawner::spawn_room(&mut gs.ecs, room);
+        spawner::spawn_room(&mut gs.ecs, room, map.depth);
     }
 
     gs.ecs.insert(map);

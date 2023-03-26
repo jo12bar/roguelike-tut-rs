@@ -12,8 +12,7 @@ use crate::{
     Viewshed, MAPWIDTH,
 };
 
-const MAX_SPAWNS_PER_ROOM: i32 = 4;
-const MIN_SPAWNS_PER_ROOM: i32 = -2;
+const SPAWN_DIE: i32 = 7;
 const MAX_SPAWN_TRIES_PER_ROOM: usize = 20;
 
 /// Spawns the player and returns their [`PlayerEntity`] reference.
@@ -44,28 +43,30 @@ pub fn player(ecs: &mut World, player_x: i32, player_y: i32) -> PlayerEntity {
     PlayerEntity(ent)
 }
 
-fn room_entity_spawn_table() -> RngTable {
+fn room_entity_spawn_table(map_depth: i32) -> RngTable {
     RngTable::new()
         .add("Goblin", 10)
-        .add("Orc", 1)
+        .add("Orc", 1 + map_depth)
         .add("Health Potion", 7)
-        .add("Fireball Scroll", 2)
-        .add("Confusion Scroll", 2)
+        .add("Fireball Scroll", 2 + map_depth)
+        .add("Confusion Scroll", 2 + map_depth)
         .add("Magic Missile Scroll", 4)
 }
 
 /// Fills a room with monsters, items, and other stuff.
-pub fn spawn_room(ecs: &mut World, room: &Rect) {
-    let spawn_table = room_entity_spawn_table();
+pub fn spawn_room(ecs: &mut World, room: &Rect, map_depth: i32) {
+    let spawn_table = room_entity_spawn_table(map_depth);
     let mut spawn_points: FxHashMap<usize, Option<String>> = FxHashMap::default();
 
     // Figure out how many monsters and items to spawn, and where to put them
     {
         let mut rng = ecs.write_resource::<RandomNumberGenerator>();
 
-        // This gives a room a spawn count between MIN_SPAWNS_PER_ROOM and MAX_SPAWNS_PER_ROOM.
-        // Note that rng.range is inclusive on the lower bound and exclusive on the upper bound.
-        let num_spawns = rng.range(MIN_SPAWNS_PER_ROOM, MAX_SPAWNS_PER_ROOM + 1);
+        // This gives a room a spawn count following the roll of 1d(SPAWN_DIE) - floor(SPAWN_DIE / 2),
+        // plus 1 for each level past the first floor.
+        let num_spawns = rng.roll_dice(1, SPAWN_DIE + (SPAWN_DIE as f32 / 2.0).floor() as i32)
+            + (map_depth - 1)
+            - (SPAWN_DIE as f32 / 2.0).floor() as i32;
 
         for _ in 0..num_spawns {
             let mut added = false;
