@@ -7,8 +7,8 @@ use rltk::{Rltk, VirtualKeyCode};
 use specs::prelude::*;
 
 use crate::{
-    CombatStats, GameLog, Item, Map, Player, Position, RunState, State, TileType, Viewshed,
-    WantsToMelee, WantsToPickupItem,
+    CombatStats, GameLog, Item, Map, Monster, Player, Position, RunState, State, TileType,
+    Viewshed, WantsToMelee, WantsToPickupItem,
 };
 
 /// The player's position. Just a newtype wrapper over a [`rltk::Point`].
@@ -168,6 +168,9 @@ pub fn player_input(gs: &mut State, ctx: &mut Rltk) -> RunState {
             VirtualKeyCode::Numpad3 | VirtualKeyCode::M => try_move_player(1, 1, &mut gs.ecs),
             VirtualKeyCode::Numpad1 | VirtualKeyCode::N => try_move_player(-1, 1, &mut gs.ecs),
 
+            // Skip turn
+            VirtualKeyCode::Numpad5 | VirtualKeyCode::Space => return skip_turn(&mut gs.ecs),
+
             // Go down a level if on DownStairs
             VirtualKeyCode::Period => {
                 if try_next_level(&mut gs.ecs) {
@@ -239,4 +242,33 @@ fn try_next_level(ecs: &mut World) -> bool {
         gamelog.log("You try digging down a level, but your arms are too weak!");
         false
     }
+}
+
+/// Skip the player's turn, and let them heal if there are no monsters nearby.
+fn skip_turn(ecs: &mut World) -> RunState {
+    let player_entity = ecs.fetch::<PlayerEntity>();
+    let viewsheds = ecs.read_component::<Viewshed>();
+    let monsters = ecs.read_component::<Monster>();
+
+    let level_map = ecs.fetch::<Map>();
+
+    // If there are monster's in the player's viewshed, then they can't heal by waiting
+    let mut can_heal = true;
+    let player_viewshed = viewsheds.get(**player_entity).unwrap();
+    for tile in player_viewshed.visible_tiles.iter() {
+        let idx = level_map.xy_idx(tile.x, tile.y);
+        for entity in level_map.tile_content[idx].iter() {
+            if monsters.get(*entity).is_some() {
+                can_heal = false;
+            }
+        }
+    }
+
+    if can_heal {
+        let mut all_combat_stats = ecs.write_component::<CombatStats>();
+        let player_stats = all_combat_stats.get_mut(**player_entity).unwrap();
+        player_stats.hp = (player_stats.hp + 1).min(player_stats.max_hp);
+    }
+
+    RunState::PlayerTurn
 }
