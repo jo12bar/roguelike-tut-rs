@@ -1,16 +1,20 @@
+use std::collections::hash_map;
+
 use rltk::{RandomNumberGenerator, RGB};
-use rustc_hash::FxHashSet;
+use rustc_hash::FxHashMap;
 use specs::prelude::*;
 use specs::saveload::{MarkedBuilder, SimpleMarker};
 
+use crate::rng_table::RngTable;
 use crate::{
     AreaOfEffect, BlocksTile, CombatStats, Confusion, Consumable, InflictsDamage, Item, Monster,
     Name, Player, PlayerEntity, Position, ProvidesHealing, Ranged, Rect, Renderable, Serializable,
     Viewshed, MAPWIDTH,
 };
 
-const MAX_MONSTERS: i32 = 4;
-const MAX_ITEMS: i32 = 2;
+const MAX_SPAWNS_PER_ROOM: i32 = 4;
+const MIN_SPAWNS_PER_ROOM: i32 = -2;
+const MAX_SPAWN_TRIES_PER_ROOM: usize = 20;
 
 /// Spawns the player and returns their [`PlayerEntity`] reference.
 pub fn player(ecs: &mut World, player_x: i32, player_y: i32) -> PlayerEntity {
@@ -40,77 +44,63 @@ pub fn player(ecs: &mut World, player_x: i32, player_y: i32) -> PlayerEntity {
     PlayerEntity(ent)
 }
 
-/// Spawns a random monster at a given location. Returns a [`specs::Entity`]
-/// reference to the monster.
-pub fn random_monster(ecs: &mut World, x: i32, y: i32) -> specs::Entity {
-    let roll = {
-        let mut rng = ecs.write_resource::<RandomNumberGenerator>();
-        rng.roll_dice(1, 2)
-    };
-    match roll {
-        1 => spawn_orc(ecs, x, y),
-        _ => spawn_goblin(ecs, x, y),
-    }
+fn room_entity_spawn_table() -> RngTable {
+    RngTable::new()
+        .add("Goblin", 10)
+        .add("Orc", 1)
+        .add("Health Potion", 7)
+        .add("Fireball Scroll", 2)
+        .add("Confusion Scroll", 2)
+        .add("Magic Missile Scroll", 4)
 }
 
 /// Fills a room with monsters, items, and other stuff.
 pub fn spawn_room(ecs: &mut World, room: &Rect) {
-    let mut monster_spawn_points: FxHashSet<usize> = FxHashSet::default();
-    let mut item_spawn_points: FxHashSet<usize> = FxHashSet::default();
-    monster_spawn_points.reserve(MAX_MONSTERS as _);
-    item_spawn_points.reserve(MAX_ITEMS as _);
+    let spawn_table = room_entity_spawn_table();
+    let mut spawn_points: FxHashMap<usize, Option<String>> = FxHashMap::default();
 
     // Figure out how many monsters and items to spawn, and where to put them
     {
         let mut rng = ecs.write_resource::<RandomNumberGenerator>();
 
-        // This gives a room a 50% chance of not having any monsters. If it does
-        // have monsters, it will have between 1 and MAX_MONSTERS of them.
-        let num_monsters = (rng.roll_dice(2, MAX_MONSTERS) - MAX_MONSTERS).max(0);
+        // This gives a room a spawn count between MIN_SPAWNS_PER_ROOM and MAX_SPAWNS_PER_ROOM.
+        // Note that rng.range is inclusive on the lower bound and exclusive on the upper bound.
+        let num_spawns = rng.range(MIN_SPAWNS_PER_ROOM, MAX_SPAWNS_PER_ROOM + 1);
 
-        // Give a room a 25% chance of having an item. If it does have
-        // items, it can have between 1 and MAX_ITEMS of them.
-        let num_items = (rng.roll_dice(4, MAX_ITEMS) - 3 * MAX_ITEMS).max(0);
-
-        for _ in 0..num_monsters {
+        for _ in 0..num_spawns {
             let mut added = false;
-            while !added {
+            let mut tries = 0;
+            while !added && tries < MAX_SPAWN_TRIES_PER_ROOM {
                 let x = (room.x1 + 1 + rng.roll_dice(1, i32::abs(room.width() - 1))) as usize;
                 let y = (room.y1 + 1 + rng.roll_dice(1, i32::abs(room.height() - 1))) as usize;
                 let idx = (y * MAPWIDTH) + x;
-                if !monster_spawn_points.contains(&idx) {
-                    monster_spawn_points.insert(idx);
-                    added = true;
-                }
-            }
-        }
 
-        for _ in 0..num_items {
-            let mut added = false;
-            while !added {
-                let x = (room.x1 + 1 + rng.roll_dice(1, i32::abs(room.width() - 1))) as usize;
-                let y = (room.y1 + 1 + rng.roll_dice(1, i32::abs(room.height() - 1))) as usize;
-                let idx = (y * MAPWIDTH) + x;
-                if !item_spawn_points.contains(&idx) {
-                    item_spawn_points.insert(idx);
+                if let hash_map::Entry::Vacant(e) = spawn_points.entry(idx) {
+                    e.insert(spawn_table.roll(&mut rng).map(|s| s.to_string()));
                     added = true;
+                } else {
+                    tries += 1;
                 }
             }
         }
     }
 
-    // Actually spawn the monsters
-    for idx in monster_spawn_points.iter() {
-        let x = *idx % MAPWIDTH;
-        let y = *idx / MAPWIDTH;
-        random_monster(ecs, x as i32, y as i32);
-    }
+    // Actually spawn the entities
+    for (map_idx, roll_result) in spawn_points.iter() {
+        let x = (*map_idx % MAPWIDTH) as i32;
+        let y = (*map_idx / MAPWIDTH) as i32;
 
-    // Actually spawn the items
-    for idx in item_spawn_points.iter() {
-        let x = *idx % MAPWIDTH;
-        let y = *idx / MAPWIDTH;
-        spawn_random_item(ecs, x as i32, y as i32);
+        if let Some(roll_result) = roll_result {
+            match roll_result.as_ref() {
+                "Goblin" => spawn_goblin(ecs, x, y),
+                "Orc" => spawn_orc(ecs, x, y),
+                "Health Potion" => spawn_health_potion(ecs, x, y),
+                "Fireball Scroll" => spawn_fireball_scroll(ecs, x, y),
+                "Confusion Scroll" => spawn_confusion_scroll(ecs, x, y),
+                "Magic Missile Scroll" => spawn_magic_missile_scroll(ecs, x, y),
+                s => unreachable!("Should be impossible to roll entity {s:?} that isn't in the spawn table, but here we are!"),
+            };
+        }
     }
 }
 
@@ -152,20 +142,6 @@ fn spawn_monster<S: ToString>(
         })
         .marked::<SimpleMarker<Serializable>>()
         .build()
-}
-
-fn spawn_random_item(ecs: &mut World, x: i32, y: i32) -> specs::Entity {
-    let roll = {
-        let mut rng = ecs.write_resource::<RandomNumberGenerator>();
-        rng.roll_dice(1, 4)
-    };
-
-    match roll {
-        1 => spawn_health_potion(ecs, x, y),
-        2 => spawn_fireball_scroll(ecs, x, y),
-        3 => spawn_magic_missile_scroll(ecs, x, y),
-        _ => spawn_confusion_scroll(ecs, x, y),
-    }
 }
 
 fn spawn_health_potion(ecs: &mut World, x: i32, y: i32) -> specs::Entity {

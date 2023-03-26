@@ -10,6 +10,7 @@ mod monster_ai_system;
 mod player;
 mod rect;
 mod render;
+mod rng_table;
 mod saveload_system;
 mod spawner;
 mod visibility_system;
